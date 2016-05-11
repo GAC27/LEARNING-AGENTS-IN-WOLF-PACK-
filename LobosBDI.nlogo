@@ -3,7 +3,7 @@ breed [wolves wolf]
 globals[ SizeOfMap wolves-in-position]
 
 turtles-own [prev-xcor prev-ycor]
-
+patches-own [cost came-from cost-so-far heuristic fvalue]
 
 to set-globals
   set SizeOfMap (max-pxcor + 1)
@@ -13,6 +13,7 @@ to setup
 
   clear-all
   reset-ticks
+  setup-costs
   set-globals
    ask patches with [pxcor >= (- SizeOfMap) and pxcor < (SizeOfMap) and pycor >= (- SizeOfMap) and pycor < (SizeOfMap )]
     [ set pcolor scale-color green ((random 500) + 5000) 0 9000 ]
@@ -36,6 +37,44 @@ to setup
     setxy (round random-xcor) (round random-ycor)
     set heading 0
   ]
+end
+
+
+;;;
+;;; Wolves own this characteristics
+;;;
+wolves-own [
+  last-action
+  sheep-pos
+  desire
+  intention
+  plan
+]
+
+;;
+;; last-action:      It contains the robot's action in the previous robot-loop
+;;                   Its values range between: "move-up", "move-down", "move-left", "move-right" and "stop"
+;;
+;; desire:           It indentifies the robot's current desire, according to the desire definition in Chap.4 of [Wooldridge02].
+;;                   Its values range between: "search", "pursuit" and "stop"
+;;
+;; intention:        It identifies the robot's current intention, according to the intention definition in Chap.4 of [Wooldridge02].
+;;                   It uses the internal abstract type 'intention'
+;;
+;; plan:             It identifies the robot's current plan to achieve its intention
+;;                   It uses the internal abstract type 'plan'
+;;
+
+
+
+;;;
+;;; Initialization of the wolf
+;;;
+to init-wolf
+  set desire "search"
+  set intention build-empty-intention
+  set plan build-empty-plan
+  set last-action ""
 end
 
 
@@ -90,35 +129,25 @@ end
 ;;;  wolf's updating procedure, which defines the rules of its behaviors
 ;;;
 to wolf-loop
-  let the-sheep position-sheep
-  if not around-sheep?[
-    if the-sheep != nobody[
-      face the-sheep
-
-      ifelse heading < 45 or heading >= 315[
-        set heading 0
-      ]
-      [
-        ifelse heading >= 45 and heading < 135[
-          set heading 90
-        ]
-        [
-          ifelse heading >= 135 and heading < 225[
-            set heading 180
-          ]
-          [
-
-              set heading 270
-
-          ]
-        ]
-      ]
-    ]
-    fd 1
+  set last-action ""
+  ifelse not (empty-plan? plan or intention-succeeded? intention or impossible-intention? intention)
+  [
+    execute-plan-action
+    update-beliefs
   ]
+  [
+    update-beliefs
+    ;; Check the robot's options
+    set desire BDI-options
+    set intention BDI-filter
+  ;  set plan build-plan-for-intention intention
+    set plan []
+    ;; If it could not build a plan, the robot should behave as a reactive agent
+    if(empty-plan? plan)
+      [ reactive-agent-loop ]
+  ]
+
 end
-
-
 
 ;
 ;Returns the turtle to its previous position
@@ -147,14 +176,441 @@ to-report position-sheep
 
   report one-of sheep-on (patches in-radius Wolf_depth_of_field)
 end
+
+
+
+;
+;Reports an agentset with all the seen wolves that are in the wolf's field of vision
+;
+to-report wolves-near
+  ;let patches-seen patches with [(distance myself) < Wolf_depth_of_field]
+  ;let sheep-found sheep-on patches-seen
+  ;report one-of sheep-found
+
+  report wolves-on (patches in-radius Wolf_depth_of_field)
+end
+
+
+
+
+;;;
+;;;
+;;; BDI PROCEDURES
+;;;
+;;;
+
+
+;;;
+;;; According to the current beliefs, it selects the wolf's desires
+;;;
+;;; Reference: Chap.4 de [Wooldridge02]
+;;;
+to-report BDI-options
+  ifelse around-sheep? [
+   report "stop"
+  ]
+  [
+   ifelse sheep-pos != nobody[
+     report "pursuit"
+   ]
+   [
+     report "search"
+   ]
+  ]
+
+end
+
+
+;;;
+;;; It selects a desire and coverts it into an intention
+;;; Reference: Chap.4 de [Wooldridge02]
+;;;
+to-report BDI-filter
+  let pos-xcor xcor
+  let pos-ycor ycor
+
+  ifelse desire = "stop"
+  [
+
+    report build-intention desire (list xcor ycor)
+  ]
+  [
+   ifelse desire = "pursuit"[
+     ask sheep-pos[
+       set pos-xcor xcor
+       set pos-ycor ycor
+     ]
+    report build-intention desire (list pos-xcor pos-ycor)
+   ]
+   [
+     if desire = "search"[
+       ask one-of neighbors4[
+         set pos-xcor pxcor
+         set pos-ycor pycor
+       ]
+       report build-intention desire (list pos-xcor pos-ycor)
+     ]
+   ]
+
+  ]
+  report build-empty-intention
+end
+
+
+;;;
+;;;  Create a plan for a given intention
+;;;
+to-report build-plan-for-intention [iintention]
+  let new-plan 0
+
+  set new-plan build-empty-plan
+  if  not empty-intention? iintention
+  [
+    set new-plan build-path-plan (list xcor ycor) item 1 iintention
+  ]
+
+  report new-plan
+
+end
+
+
+
+;;;
+;;;  Update the wolf's beliefs based on its perceptions
+;;;  Reference: Chap.4 of [Wooldridge02]
+;;;
+to update-beliefs
+  update-state
+end
+
+;;;
+;;;  Check if the robot's intention has been achieved
+;;;
+to-report intention-succeeded? [iintention]
+  let ddesire 0
+
+
+  if(empty-intention? iintention)
+    [ report false ]
+
+  set ddesire get-intention-desire iintention
+  if(ddesire = "catch")
+  [ report true]
+end
+
+
+;;;  Check if an intention cannot be achieved anymore
+;;;
+;;;
+to-report impossible-intention? [iintention]
+  report false
+end
+
+
+;;;
+;;;  Reactive agent control loop
+;;;
+to reactive-agent-loop
+   let the-sheep position-sheep
+  if not around-sheep?[
+    if the-sheep != nobody[
+      face the-sheep
+      set heading ( floor (heading / 90)) * 90
+    ]
+    fd 1
+  ]
+
+end
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;                                            ;;;
+;;;           INTERNAL ABSTRACT TYPES          ;;;
+;;;                                            ;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+;;;
+;;; -------------------------
+;;; Intention
+;;;
+;;; Chap.4 of [Wooldridge02]
+;;; An intention is a list such as [desire position heading]
+;;; -------------------------
+;;;
+to-report build-empty-intention
+  report []
+end
+
+to-report build-intention [ddesire pposition]
+  let aux 0
+
+  set aux list ddesire pposition
+  report aux
+end
+
+to-report get-intention-desire [iintention]
+  report item 0 iintention
+end
+
+to-report get-intention-position [iintention]
+  report item 1 iintention
+end
+
+
+to-report empty-intention? [iintention]
+  report empty? iintention
+end
+
+;;;
+;;; -------------------------
+;;;    Plans
+;;; -------------------------
+;;;
+
+to-report add-instruction-to-plan [pplan iinstruction]
+  report lput iinstruction pplan
+end
+
+to-report remove-plan-first-instruction [pplan]
+  report butfirst pplan
+end
+
+to-report get-plan-first-instruction [pplan]
+  report first pplan
+end
+
+;;;
+;;; Build a pan to move the agent from posi to posf
+;;;
+to-report build-path-plan [posi posf]
+  let newPlan 0
+  let path 0
+  let lastpos posi
+
+
+  set newPlan build-empty-plan
+  set path (find-path posi posf)
+  foreach path
+    [ set newPlan add-instruction-to-plan newPlan build-instruction-find-adjacent-position ? lastpos ]
+
+  report newPlan
+end
+
+
+to-report build-empty-plan
+  report []
+end
+
+to-report empty-plan? [pplan]
+  report empty? pplan
+end
+
+
+
+
+;;;
+;;; -------------------------
+;;;    Plan Intructions
+;;; -------------------------
+;;;
+
+to-report build-instruction [ttype vvalue]
+  report list ttype vvalue
+end
+
+to-report get-instruction-type [iinstruction]
+  report first iinstruction
+end
+
+to-report get-instruction-value [iinstruction]
+  report last iinstruction
+end
+
+to-report build-instruction-find-adjacent-position [aadjacent-position lastpos]
+  let posxDifference (item 0 aadjacent-position) - (item 0 lastpos)
+  let posyDifference (item 1 aadjacent-position) - (item 1 lastpos)
+  let realSizeOM (-1 + SizeOfMap)
+  ifelse (posxDifference > 0 and posyDifference = 0 and posxDifference != realSizeOM) or (posxDifference = (0 - realSizeOM) and posyDifference = 0)[
+     report build-instruction "moveleft" aadjacent-position
+
+  ]
+  [
+     ifelse (posxDifference < 0 and posyDifference = 0 and posxDifference != (0 - realSizeOM)) or (posxDifference = realSizeOM and posyDifference = 0)[
+        report build-instruction "moveright" aadjacent-position
+     ]
+     [
+       ifelse (posxDifference = 0 and posyDifference > 0 and posyDifference != realSizeOM) or (posxDifference = 0 and posyDifference = (0 - realSizeOM))[
+         report build-instruction "moveup" aadjacent-position
+       ]
+       [
+         report build-instruction "movedown" aadjacent-position
+       ]
+     ]
+  ]
+
+end
+
+
+
+
+;;;
+;;; ----------------------------
+;;;  Plan execution procedures
+;;; ----------------------------
+;;;
+
+;;;
+;;;  Execute the next action of the current plan
+;;;
+to execute-plan-action
+
+end
+
+;;;
+;;; ----------------------------------------
+;;;    Internal state updating procedures
+;;; ----------------------------------------
+;;;
+
+;;;
+;;;  Update the robot's state
+;;;
+to update-state
+  let the-sheep position-sheep
+  ifelse the-sheep != nobody [
+   set sheep-pos the-sheep
+  ]
+  [
+    let the-wolves wolves-near
+    ask the-wolves [
+      if the-sheep = nobody[
+        set the-sheep position-sheep
+      ]
+    ]
+  ]
+end
+
+
+;;;
+;;; -------------------------
+;;;    Map
+;;; -------------------------
+;;;
+
+
+
+;;;
+;;;  Return a list of positions from initialPos to FinalPos
+;;;  The returning list excludes the initialPos
+;;;  If no path is found, the returning list is empty
+;;;
+;;;  path= caminho -> reachedGoal-> frontier->Goal-pos -> Start_pos
+to-report find-path [initialPos FinalPos]
+
+  let START_POS patch (item 0 initialPos) (item 1 initialPos)
+
+  ask START_POS [ set came-from START_POS ]
+
+  let path (list [] false (list START_POS) (patch (item 0 FinalPos) (item 1 FinalPos)) START_POS)
+
+  while [(item 1 path ) = false][
+    set path pathfinding-iteration path
+  ]
+  report item 0 path
+end
+
+
+to-report pathfinding-iteration [path]
+  let current pop-frontier (item 2 path)
+
+  if current = (item 3 path)
+  [
+    report replace-item 1 path true
+
+  ]
+
+
+  let current-neighbors (agentset-to-list ([neighbors4] of current))
+
+  (foreach current-neighbors [
+    let next ?
+    let new-cost [cost-so-far] of current + [cost] of next
+    if [cost-so-far] of next = 0 or new-cost < [cost-so-far] of next
+    [
+      ask next
+      [
+        set cost-so-far new-cost
+        set heuristic simple-distance self (item 3 path)
+        set fvalue cost-so-far + heuristic
+        set plabel fvalue
+      ]
+      set path replace-item 2 path (add-frontier next (item 2 path))
+      ask next [ set came-from current ]
+    ]
+  ])
+  report path
+end
+
+to-report pop-frontier[FRONTIER]
+  let top first FRONTIER
+  set FRONTIER but-first FRONTIER
+  report top
+end
+
+to-report add-frontier [value FRONTIER]
+  set FRONTIER fput value FRONTIER
+  set FRONTIER sort-by [[fvalue] of ?1 < [fvalue] of ?2] FRONTIER
+  report FRONTIER
+end
+
+
+to-report simple-distance [patch1 patch2]
+  let delta-x abs ([pxcor] of patch1 - [pxcor] of patch2)
+  let delta-y abs ([pycor] of patch1 - [pycor] of patch2)
+  report delta-x + delta-y
+end
+
+
+to setup-costs
+  ask patches [set cost 1]
+end
+
+
+;;;
+;;; Path data structure
+;;;
+to-report reconstruct-path [path]
+  let current (item 3 path)
+  let finalPath (list current)
+  while [current != (item 4 path)]
+  [
+    (set current ([came-from] of current))
+    (set finalPath (fput current finalPath))
+  ]
+  set path replace-item 0 path finalPath
+  report path
+end
+
+
+
+;;;
+;;; I blame NetLogo
+;;;
+to-report agentset-to-list [as]
+  report [self] of as
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
-303
-13
-733
-464
-10
-10
+392
+41
+822
+492
+-1
+-1
 20.0
 1
 10
@@ -165,10 +621,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--10
-10
--10
-10
+0
+20
+0
+20
 0
 0
 1
@@ -176,14 +632,14 @@ ticks
 30.0
 
 SLIDER
+12
+22
+224
+55
+Wolf_depth_of_field
+Wolf_depth_of_field
 1
-21
-216
-54
-Wolf_depth_of_field
-Wolf_depth_of_field
-0
-SizeOfMap - 1 / 2
+(SizeOfMap - 1) / 2
 10
 1
 1
@@ -191,10 +647,10 @@ patches
 HORIZONTAL
 
 BUTTON
-25
-103
-89
-136
+88
+62
+152
+95
 Setup
 setup
 NIL
@@ -208,13 +664,13 @@ NIL
 1
 
 BUTTON
-100
-106
-163
-139
+13
+62
+76
+95
+Go
 go
-go
-T
+NIL
 1
 T
 OBSERVER
@@ -225,10 +681,10 @@ NIL
 1
 
 BUTTON
-80
-266
-191
-299
+21
+105
+132
+138
 Single Step Go
 go
 NIL
