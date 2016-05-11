@@ -140,8 +140,8 @@ GRAPHICS-WINDOW
 13
 733
 464
-10
-10
+-1
+-1
 20.0
 1
 10
@@ -152,10 +152,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--10
-10
--10
-10
+0
+20
+0
+20
 0
 0
 1
@@ -169,9 +169,9 @@ SLIDER
 54
 Wolf_depth_of_field
 Wolf_depth_of_field
-0
-SizeOfMap - 1 / 2
-2
+1
+(SizeOfMap - 1 ) / 2
+10
 1
 1
 patches
