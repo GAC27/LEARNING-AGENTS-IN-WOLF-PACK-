@@ -51,6 +51,7 @@ wolves-own [
   desire
   intention
   plan
+  otherWolvesObjective
 ]
 
 ;;
@@ -109,7 +110,7 @@ to go
      set prev-ycor ycor
     set heading ((random 4) * 90)
     if (random 100) > 25 [
-      fd 1
+     ; fd 1
     ]
   ]
   ;;correct colisions
@@ -144,7 +145,7 @@ to wolf-loop
     set intention BDI-filter
   ;  set plan build-plan-for-intention intention
     set plan []
-    ;; If it could not build a plan, the robot should behave as a reactive agent
+    ;; If it could not build a plan, the wolf should behave as a reactive agent
     if(empty-plan? plan)
       [ reactive-agent-loop ]
   ]
@@ -238,11 +239,26 @@ to-report BDI-filter
   ]
   [
    ifelse desire = "pursuit"[
-     ask sheep-pos[
-       set pos-xcor xcor
-       set pos-ycor ycor
+     let the-wolves wolves-near
+     let wolves-intention-patches []
+     let px 0
+     let py 0
+     ask the-wolves[
+      if( not empty-intention? intention)[
+        set px (first item 1 intention)
+        set py (last item 1 intention)
+        set wolves-intention-patches lput (patch-at px py) wolves-intention-patches
+      ]
      ]
-    report build-intention desire (list pos-xcor pos-ycor)
+     let objective-patch 0
+     ask sheep-pos[
+       set objective-patch  filter [not member? ? wolves-intention-patches] sort neighbors4
+     ]
+     ask first objective-patch[
+      set px pxcor
+      set py pycor
+     ]
+    report build-intention desire (list px py)
    ]
    [
      if desire = "search"[
@@ -490,7 +506,7 @@ to update-state
     let the-wolves wolves-near
     ask the-wolves [
       if the-sheep = nobody[
-        set the-sheep position-sheep
+        set sheep-pos position-sheep
       ]
     ]
   ]
@@ -636,13 +652,13 @@ ticks
 SLIDER
 12
 22
-224
+227
 55
 Wolf_depth_of_field
 Wolf_depth_of_field
 1
-(SizeOfMap - 1) / 2
-10
+(SizeOfMap - 1.1) / 2
+9
 1
 1
 patches
