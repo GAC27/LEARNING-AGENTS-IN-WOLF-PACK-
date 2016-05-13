@@ -36,7 +36,9 @@ to setup
     set size 1  ;; easier to see
     setxy (round random-xcor) (round random-ycor)
     set heading 0
+    init-wolf
   ]
+
 end
 
 
@@ -137,7 +139,7 @@ to wolf-loop
   ]
   [
     update-beliefs
-    ;; Check the robot's options
+    ;; Check the wolf's options
     set desire BDI-options
     set intention BDI-filter
   ;  set plan build-plan-for-intention intention
@@ -284,7 +286,7 @@ to update-beliefs
 end
 
 ;;;
-;;;  Check if the robot's intention has been achieved
+;;;  Check if the wolf's intention has been achieved
 ;;;
 to-report intention-succeeded? [iintention]
   let ddesire 0
@@ -477,7 +479,7 @@ end
 ;;;
 
 ;;;
-;;;  Update the robot's state
+;;;  Update the wolf's state
 ;;;
 to update-state
   let the-sheep position-sheep
@@ -670,7 +672,7 @@ BUTTON
 95
 Go
 go
-NIL
+T
 1
 T
 OBSERVER
@@ -1040,7 +1042,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3.1
+NetLogo 5.3
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
