@@ -575,7 +575,7 @@ to-report pathfinding-iteration [path]
         set cost-so-far new-cost
         set heuristic simple-distance self (item 3 path)
         set fvalue cost-so-far + heuristic
-        ;set plabel round fvalue
+        ;set plabel fvalue
       ]
       set path replace-item 2 path (add-frontier next (item 2 path))
       ask next [ set came-from current ]
@@ -595,7 +595,9 @@ end
 
 
 to-report simple-distance [patch1 patch2]
-  report [distance patch2] of patch1
+  let delta-x abs ([pxcor] of patch1 - [pxcor] of patch2)
+  let delta-y abs ([pycor] of patch1 - [pycor] of patch2)
+  report delta-x + delta-y
 end
 
 
@@ -673,7 +675,7 @@ Wolf_depth_of_field
 Wolf_depth_of_field
 1
 (SizeOfMap - 1.1) / 2
-5
+9
 1
 1
 patches
