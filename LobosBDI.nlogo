@@ -3,6 +3,35 @@ breed [wolves wolf]
 globals[ SizeOfMap wolves-in-position]
 
 turtles-own [prev-xcor prev-ycor]
+
+;;;
+;;; Wolves own this characteristics
+;;;
+wolves-own [
+  last-action
+  sheep-pos
+  desire
+  intention
+  plan
+  otherWolvesObjective
+  communication-done
+]
+
+;;
+;; last-action:      It contains the robot's action in the previous robot-loop
+;;                   Its values range between: "move-up", "move-down", "move-left", "move-right" and "stop"
+;;
+;; desire:           It indentifies the robot's current desire, according to the desire definition in Chap.4 of [Wooldridge02].
+;;                   Its values range between: "search", "pursuit" and "stop"
+;;
+;; intention:        It identifies the robot's current intention, according to the intention definition in Chap.4 of [Wooldridge02].
+;;                   It uses the internal abstract type 'intention'
+;;
+;; plan:             It identifies the robot's current plan to achieve its intention
+;;                   It uses the internal abstract type 'plan'
+;;
+
+
 patches-own [cost came-from cost-so-far heuristic fvalue]
 
 to set-globals
@@ -29,6 +58,7 @@ to setup
 
   set-default-shape wolves "wolf"
 
+
   create-wolves 4  ;; create the wolves
   [
     set color black
@@ -38,34 +68,8 @@ to setup
     init-wolf
   ]
 
+
 end
-
-
-;;;
-;;; Wolves own this characteristics
-;;;
-wolves-own [
-  last-action
-  sheep-pos
-  desire
-  intention
-  plan
-  otherWolvesObjective
-]
-
-;;
-;; last-action:      It contains the robot's action in the previous robot-loop
-;;                   Its values range between: "move-up", "move-down", "move-left", "move-right" and "stop"
-;;
-;; desire:           It indentifies the robot's current desire, according to the desire definition in Chap.4 of [Wooldridge02].
-;;                   Its values range between: "search", "pursuit" and "stop"
-;;
-;; intention:        It identifies the robot's current intention, according to the intention definition in Chap.4 of [Wooldridge02].
-;;                   It uses the internal abstract type 'intention'
-;;
-;; plan:             It identifies the robot's current plan to achieve its intention
-;;                   It uses the internal abstract type 'plan'
-;;
 
 
 
@@ -77,6 +81,7 @@ to init-wolf
   set intention build-empty-intention
   set plan build-empty-plan
   set last-action ""
+  set communication-done false
 end
 
 
@@ -84,7 +89,6 @@ end
 ;;;  Step up the simulation
 ;;;
 to go
-  print "----------------"
   ;Stoping condition test
   ask wolves [
     if around-sheep?[
@@ -98,6 +102,13 @@ to go
 
   let collisions true
   tick
+  ;;
+
+  ;;; Wolves update beliefs
+  ask wolves[
+    update-beliefs
+  ]
+
   ;; the wolves think
   ask wolves [
       wolf-think-loop
@@ -136,8 +147,7 @@ end
 ;;;  wolf's updating procedure, which defines the rules of its behaviors
 ;;;
 to wolf-think-loop
-  show "thinking"
-  update-beliefs
+  set communication-done false
   ;; Check the wolf's options
   set desire BDI-options
   set intention BDI-filter
@@ -148,7 +158,6 @@ end
 ;;;Wolf acting procedure
 ;;;
 to wolf-act-loop
-  show "acting"
   if not empty-plan? plan [
     execute-plan-action
   ]
@@ -236,36 +245,27 @@ to-report BDI-filter
   ]
   [
    ifelse desire = "pursuit" [
-     let wolves-intention-patches []
-     let px 0
-     let py 0
-     ask visible-wolves [
-      if (not empty-intention? intention) [
-        set px (first item 1 intention)
-        set py (last item 1 intention)
-        set wolves-intention-patches lput (patch px py) wolves-intention-patches
-      ]
-     ]
-     let objective-patches 0
-     ask sheep-pos [
-       show wolves-intention-patches
-       show (agentset-to-list neighbors4)
-       set objective-patches filter [not member? ? wolves-intention-patches] (agentset-to-list neighbors4)
-       show objective-patches
-     ]
-     ask first objective-patches [
-      set px pxcor
-      set py pycor
-     ]
+     let pos get-position-to-attack
+     let px (item 0 pos)
+     let py (item 1 pos)
 
      report build-intention desire (list px py)
    ]
    [
      if desire = "search" [
-       ask one-of neighbors4 [
+      ifelse(diagonal-movement)
+      [
+       ask one-of neighbors [
          set pos-xcor pxcor
          set pos-ycor pycor
        ]
+      ]
+      [
+        ask one-of neighbors4 [
+         set pos-xcor pxcor
+         set pos-ycor pycor
+       ]
+      ]
        report build-intention desire (list pos-xcor pos-ycor)
      ]
    ]
@@ -498,23 +498,63 @@ end
 ;;;
 
 ;;;
-;;;  Update the wolf's state
+;;;  Update the wolf's state using perceptions and comunications
 ;;;
 to update-state
   let the-sheep position-sheep
-  ifelse the-sheep != nobody [
-   set sheep-pos the-sheep
-  ]
-  [
-    let the-wolves visible-wolves
-    ask the-wolves [
-      if sheep-pos = nobody [
-        set the-sheep sheep-pos
-      ]
+  if not communication-done[
+    ifelse (the-sheep != nobody )[
+      set sheep-pos the-sheep
+      send-sheep-pos the-sheep
     ]
-
-    set sheep-pos the-sheep
+    [      set sheep-pos nobody
+    ]
   ]
+end
+
+
+
+;;;
+;;; ----------------------------
+;;;    Communication procedures
+;;; ----------------------------
+;;;
+
+;;;send sheep pos to
+;;;wolves visible
+to send-sheep-pos [the-sheep]
+  if(not communication-done)
+  [
+    set communication-done true
+    ask visible-wolves[
+      set sheep-pos the-sheep
+      send-sheep-pos the-sheep
+    ]
+  ]
+end
+
+
+;;;Choose a free position to attack
+to-report get-position-to-attack
+  let wolves-intention-patches []
+  let px 0
+  let py 0
+  ask visible-wolves [
+      if (not empty-intention? intention) [
+        set px (first item 1 intention)
+        set py (last item 1 intention)
+        set wolves-intention-patches lput (patch px py) wolves-intention-patches
+      ]
+     ]
+     let objective-patches 0
+     ask sheep-pos [
+       set objective-patches filter [not member? ? wolves-intention-patches] (agentset-to-list neighbors4)
+     ]
+     ask first objective-patches [
+      set px pxcor
+      set py pycor
+     ]
+     report (list px py)
 end
 
 
@@ -563,8 +603,14 @@ to-report pathfinding-iteration [path]
   ]
 
 
-  let current-neighbors (agentset-to-list ([neighbors4] of current))
-
+  let current-neighbors 0
+  ifelse (diagonal-movement)
+  [
+    set current-neighbors (agentset-to-list ([neighbors] of current))
+  ]
+  [
+    set current-neighbors (agentset-to-list ([neighbors4] of current))
+  ]
   (foreach current-neighbors [
     let next ?
     let new-cost [cost-so-far] of current + [cost] of next
@@ -673,7 +719,7 @@ Wolf_depth_of_field
 Wolf_depth_of_field
 1
 (SizeOfMap - 1.1) / 2
-5
+9
 1
 1
 patches
@@ -729,6 +775,17 @@ NIL
 NIL
 NIL
 1
+
+SWITCH
+12
+154
+176
+187
+diagonal-movement
+diagonal-movement
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1073,7 +1130,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3.1
+NetLogo 5.3
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
