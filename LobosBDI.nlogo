@@ -253,6 +253,7 @@ to-report BDI-filter
    ]
    [
      if desire = "search" [
+      if (random 100) >= 25[
       ifelse(diagonal-movement)
       [
        ask one-of neighbors [
@@ -265,6 +266,7 @@ to-report BDI-filter
          set pos-xcor pxcor
          set pos-ycor pycor
        ]
+      ]
       ]
        report build-intention desire (list pos-xcor pos-ycor)
      ]
@@ -719,7 +721,7 @@ Wolf_depth_of_field
 Wolf_depth_of_field
 1
 (SizeOfMap - 1.1) / 2
-9
+2
 1
 1
 patches
@@ -783,7 +785,7 @@ SWITCH
 187
 diagonal-movement
 diagonal-movement
-0
+1
 1
 -1000
 
