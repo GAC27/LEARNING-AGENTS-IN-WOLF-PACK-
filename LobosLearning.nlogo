@@ -5,9 +5,10 @@ extensions [array]
 
 breed [sheep a-sheep]
 breed [wolves wolf]
-globals[ NUM-ACTIONS SizeOfMap epsilon temperature episode-count time-steps total-time-steps]
+globals[ NUM-ACTIONS SizeOfMap epsilon temperature episode-count time-steps total-time-steps ACTION-LIST]
 
-turtles-own [Q-values reward total-reward init_xcor init_ycor prev-xcor prev-ycor]
+turtles-own [ init_xcor init_ycor prev-xcor prev-ycor]
+wolves-own [Q-values reward total-reward last-action]
 
 
 ;;;  =================================================================
@@ -34,8 +35,22 @@ to set-globals
   set episode-count 0
   set epsilon 1
   set temperature 100
+  ; defines list of actions as (x y) move increments
+  set ACTION-LIST (list
+    list 0 0    ; no-move
+    list 0 1    ; N north
+    list 0 -1   ; S south
+    list 1 0    ; E east
+    list -1 0   ; W west
+    list 1 1    ; NE northeast
+    list 1 -1   ; SE southeast
+    list -1 1   ; NW northwest
+    list -1 -1  ; SW southwest
+    )
   ; defines the number of available actions from above
-  set NUM-ACTIONS 4
+  ifelse(diagonal-movement)
+  [set NUM-ACTIONS 9]
+  [set NUM-ACTIONS 5]
 end
 
 
@@ -67,8 +82,8 @@ to setup
     set init_xcor xcor
     set init_ycor ycor
     set heading 0
-    set prev-xcor (xcor + max-pxcor)
-    set prev-ycor (ycor + max-pycor)
+    set prev-xcor xcor
+    set prev-ycor ycor
     set Q-values get-initial-Q-values
     set reward 0
     set total-reward 0
@@ -104,7 +119,7 @@ to go
     ask wolves [
       set prev-xcor xcor
       set prev-ycor ycor
-      wolf-loop
+      wolf-loop-action
     ]
   ;; the sheep act
   ask sheep [
@@ -112,9 +127,13 @@ to go
      set prev-ycor ycor
     set heading ((random 4) * 90)
     if (random 100) > 25 [
-     ; fd 1
+      fd 1
     ]
   ]
+  ask wolves [
+      wolf-loop-reward
+    ]
+
   ;;correct colisions
   let collisions true
   while [collisions] [
@@ -139,9 +158,9 @@ to reset
 
   ask wolves [
     ; plot reward in episode
-    set-current-plot "Reward performance"
-    set-current-plot-pen (word who "reward")
-    plot total-reward
+   ; set-current-plot "Reward performance"
+    ;set-current-plot-pen (word who "reward")
+    ;plot total-reward
     set total-reward 0
 
     ; reset positions
@@ -152,9 +171,9 @@ to reset
   ]
 
   ; plots and update variables
-  set-current-plot "Time performance"
-  set-current-plot-pen "time-steps"
-  plot time-steps
+ ; set-current-plot "Time performance"
+ ; set-current-plot-pen "time-steps"
+ ; plot time-steps
 
   set episode-count (episode-count + 1)
   set time-steps 0
@@ -172,19 +191,21 @@ end
 ;;;
 ;;;  wolf's updating procedure, which defines the rules of its behaviors
 ;;;
-to wolf-loop
+to wolf-loop-action
   ; chooses action
   let action select-action xcor ycor
-
+  set last-action action
   ; updates environmet
   execute-action action
+end
 
-  ; gets reward
-  set reward get-reward action
+to wolf-loop-reward
+ ; gets reward
+  set reward get-reward last-action
   set total-reward (total-reward + reward)
 
   ; updates Q-value function
-  update-Q-value action
+  update-Q-value last-action
 end
 
 ;;;  =================================================================
@@ -223,6 +244,11 @@ to-report position-sheep
   ;report one-of sheep-found
 
   report one-of sheep-on (patches in-radius Wolf_depth_of_field)
+end
+
+
+to-report collision?
+  report any? (turtles-on patch-here) with [self != myself]
 end
 
 
@@ -272,9 +298,7 @@ to-report get-max-Q-value [x y]
 end
 
 to-report get-action-index [ action ]
-  ;;TODO
-  ;;TODO
-  ;;TODO
+  report position action ACTION-LIST
 end
 
 
@@ -283,10 +307,14 @@ end
 ;;;  Executes a given action by changing the agent's position accordingly.
 ;;;
 to execute-action [action]
+; stores previous position
+  set prev-xcor xcor
+  set prev-ycor ycor
+  set xcor xcor + first action
+  set ycor ycor + last action
 
-;;;TODO
-;;;TODO
-;;;TODO
+  ; increases action count
+  set time-steps (time-steps + 1)
 
 end
 
@@ -294,9 +322,19 @@ end
 ;;;  Gets the reward related with the current state and a given action (x y action).
 ;;;
 to-report get-reward [action]
-;;;TODO
-;;;TODO
-;;;TODO
+  ifelse (collision?)
+  [
+    report reward-collision
+  ]
+  [
+    ifelse (around-sheep?)
+    [
+      report reward-value
+    ]
+    [
+      report 0
+    ]
+  ]
 end
 
 
@@ -378,9 +416,17 @@ end
 ;;;    - use "array:to-list" to convert an array to a list
 ;;;
 to-report select-action-e-greedy [x y]
-;;;TODO
-;;;TODO
-;;;TODO
+ ; checks dice against epsilon
+  let dice random-float 1
+  ifelse epsilon > dice [
+    ; return random action
+    report item (random NUM-ACTIONS) ACTION-LIST
+  ]
+  [
+    ; return max action
+    let action-values array:to-list (get-Q-values x y)
+    report item (position (max action-values) action-values) ACTION-LIST
+  ]
 end
 
 
@@ -392,19 +438,33 @@ end
 ;;;
 to-report select-action-soft-max [x y]
 
- ;;;TODO
-;;;TODO
-;;;TODO
+  ; gets action probs
+  let action-values array:to-list (get-Q-values x y)
+  let action-probs map [ (exp (? / temperature))  ] action-values
+  let sum-q sum action-probs
+  set action-probs map [ ? / sum-q ] action-probs
+
+  ; selects action based on dice
+  let dice random-float 1
+  let prob-sum item 0 action-probs
+  let action-index 0
+  while [prob-sum < dice]
+  [
+    set action-index (action-index + 1)
+    set prob-sum (prob-sum + (item action-index action-probs))
+  ]
+
+  report item action-index ACTION-LIST
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 303
 13
-733
-464
-10
-10
-20.0
+548
+198
+-1
+-1
+38.5
 1
 10
 1
@@ -414,10 +474,10 @@ GRAPHICS-WINDOW
 1
 1
 1
--10
-10
--10
-10
+0
+3
+0
+3
 0
 0
 1
@@ -431,9 +491,9 @@ SLIDER
 54
 Wolf_depth_of_field
 Wolf_depth_of_field
-0
-SizeOfMap - 1 / 2
-2
+1
+(SizeOfMap - 1.1) / 2
+9
 1
 1
 patches
@@ -499,7 +559,7 @@ max-episodes
 max-episodes
 0
 100
-50
+100
 1
 1
 NIL
@@ -523,7 +583,7 @@ CHOOSER
 Learning-algorithm
 Learning-algorithm
 "SARSA" "Q-learning"
-0
+1
 
 SLIDER
 17
@@ -576,6 +636,47 @@ get-total-time-steps
 17
 1
 11
+
+SWITCH
+13
+390
+177
+423
+diagonal-movement
+diagonal-movement
+1
+1
+-1000
+
+SLIDER
+15
+435
+187
+468
+reward-collision
+reward-collision
+-10
+0
+-10
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+12
+482
+184
+515
+reward-value
+reward-value
+0
+10
+10
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -920,7 +1021,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3
+NetLogo 5.3.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@

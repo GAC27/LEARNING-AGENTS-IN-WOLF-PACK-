@@ -166,13 +166,13 @@ ticks
 SLIDER
 1
 21
-216
+220
 54
 Wolf_depth_of_field
 Wolf_depth_of_field
 1
-(SizeOfMap - 1 ) / 2
-10
+(SizeOfMap - 1.1 ) / 2
+1
 1
 1
 patches
@@ -572,7 +572,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3
+NetLogo 5.3.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
