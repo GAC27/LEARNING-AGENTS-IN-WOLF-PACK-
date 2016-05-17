@@ -171,8 +171,8 @@ SLIDER
 Wolf_depth_of_field
 Wolf_depth_of_field
 1
-(SizeOfMap - 1.1 ) / 2
-1
+(floor SizeOfMap - 1 ) / 2
+10
 1
 1
 patches

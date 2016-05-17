@@ -8,7 +8,8 @@ breed [wolves wolf]
 globals[ NUM-ACTIONS SizeOfMap epsilon temperature episode-count time-steps total-time-steps ACTION-LIST]
 
 turtles-own [ init_xcor init_ycor prev-xcor prev-ycor]
-wolves-own [Q-values reward total-reward last-action]
+;distancexy-sheep = (Wolf_depth_of_field,Wolf_depth_of_field) quando não vê a ovelha
+wolves-own [Q-values reward total-reward last-action distancexy-sheep]
 
 
 ;;;  =================================================================
@@ -69,6 +70,8 @@ to setup
     set color white
     set size 1  ;; easier to see
     set-random-position
+    set init_xcor xcor
+    set init_ycor ycor
     set heading 0
   ]
 
@@ -82,11 +85,12 @@ to setup
     set init_xcor xcor
     set init_ycor ycor
     set heading 0
-    set prev-xcor xcor
-    set prev-ycor ycor
+    set prev-xcor (xcor + max-pxcor)
+    set prev-ycor (ycor + max-pycor)
     set Q-values get-initial-Q-values
     set reward 0
     set total-reward 0
+    set distancexy-sheep (list 0 0)
   ]
 end
 
@@ -126,7 +130,7 @@ to go
      set prev-xcor xcor
      set prev-ycor ycor
     set heading ((random 4) * 90)
-    if (random 100) > 25 [
+    if (random 100) < movement-probability-sheep [
       fd 1
     ]
   ]
@@ -157,10 +161,11 @@ end
 to reset
 
   ask wolves [
-    ; plot reward in episode
-   ; set-current-plot "Reward performance"
-    ;set-current-plot-pen (word who "reward")
-    ;plot total-reward
+    ;plot reward in episode
+    set-current-plot "Reward-performance"
+    create-temporary-plot-pen (word who "reward")
+    set-plot-pen-color (color - who * 10)
+    plot total-reward
     set total-reward 0
 
     ; reset positions
@@ -168,12 +173,21 @@ to reset
     set ycor init_ycor
     set prev-xcor xcor
     set prev-ycor ycor
+    set distancexy-sheep (list 0 0)
   ]
 
-  ; plots and update variables
- ; set-current-plot "Time performance"
- ; set-current-plot-pen "time-steps"
- ; plot time-steps
+ ask sheep[
+   set xcor init_xcor
+   set ycor init_ycor
+   set prev-xcor xcor
+   set prev-ycor ycor
+ ]
+
+
+  ;plots and update variables
+  set-current-plot "Time performance"
+  set-current-plot-pen "time-steps"
+  plot time-steps
 
   set episode-count (episode-count + 1)
   set time-steps 0
@@ -192,9 +206,18 @@ end
 ;;;  wolf's updating procedure, which defines the rules of its behaviors
 ;;;
 to wolf-loop-action
+  let visible-sheep position-sheep
   ; chooses action
-  let action select-action xcor ycor
+  let actual-sheep-dist get-sheep-distance
+  let action select-action (first actual-sheep-dist) (last actual-sheep-dist)
   set last-action action
+  ifelse (visible-sheep != nobody)
+  [
+    set distancexy-sheep get-sheep-distance-xy visible-sheep
+  ]
+  [
+    set distancexy-sheep (list Wolf_depth_of_field Wolf_depth_of_field)
+  ]
   ; updates environmet
   execute-action action
 end
@@ -212,13 +235,26 @@ end
 ;;;      Utils
 ;;;  =================================================================
 
+to-report get-sheep-distance-xy[visible-sheep]
+  report (list (([xcor] of visible-sheep - xcor) + Wolf_depth_of_field) (([ycor] of visible-sheep - ycor) + Wolf_depth_of_field))
+end
+
+to-report get-sheep-distance
+  let visible-sheep position-sheep
+
+  ifelse(visible-sheep != nobody)
+  [report get-sheep-distance-xy visible-sheep]
+  [report (list Wolf_depth_of_field Wolf_depth_of_field)]
+end
+
+
 ;
 ;Returns the turtle to its previous position
 ;
 
 to-report get-initial-Q-values
-  report array:from-list n-values world-width [
-    array:from-list n-values world-height [
+  report array:from-list n-values (2 * Wolf_depth_of_field + 1)  [
+    array:from-list n-values (2 * Wolf_depth_of_field + 1) [
       array:from-list n-values NUM-ACTIONS [0]]]
 end
 
@@ -239,13 +275,21 @@ end
 ;Reports the sheep if it is in the wolf's field of vision or nobody
 ;
 to-report position-sheep
-  ;let patches-seen patches with [(distance myself) < Wolf_depth_of_field]
-  ;let sheep-found sheep-on patches-seen
-  ;report one-of sheep-found
-
-  report one-of sheep-on (patches in-radius Wolf_depth_of_field)
+  report one-of sheep-on visible-patches
 end
 
+
+to-report visible-patches
+  report patches in-radius Wolf_depth_of_field
+end
+
+
+;
+;Reports an agentset with all the seen wolves that are in the wolf's field of vision
+;
+to-report visible-wolves
+  report (wolves-on visible-patches) with [ myself != self ]
+end
 
 to-report collision?
   report any? (turtles-on patch-here) with [self != myself]
@@ -358,33 +402,7 @@ end
 ;;;  Updates the Q-value for a given action according to the selected learning algorithm ("SARSA" or "Q-learning").
 ;;;
 to update-Q-value [action]
-  ifelse learning-algorithm = "SARSA" [
-    update-SARSA action ] [
-    update-Q-learning action ]
-end
-
-
-;;;
-;;;  Updates the Q-value for a given action according to SARSA algorithm update rule.
-;;;  Tips:
-;;;    - use "get-Q-value" and "set-Q-value" to update the action-value function
-;;;    - properties "prev-xcor" and "prev-ycor" give access to the previous state
-;;;
-to update-SARSA [action]
-
-  ; get previous Q-value
-  let previous-Q-value (get-Q-value prev-xcor prev-ycor action)
-
-  ; gets r + (lambda * Q(s',a')) - Q(s,a)
-  let next-action select-action xcor ycor
-  let prediction-error (reward + (discount-factor * get-Q-value xcor ycor next-action) - previous-Q-value)
-
-  ; gets Q(s,a) + (alpha * (r + (lambda * Q(s',a')) - Q(s,a))
-  let new-Q-value (previous-Q-value + (learning-rate * prediction-error))
-
-  ; sets new Q-value
-  set-Q-value prev-xcor prev-ycor action new-Q-value
-
+  update-Q-learning action
 end
 
 
@@ -395,18 +413,23 @@ end
 ;;;    - properties "prev-xcor" and "prev-ycor" give access to the previous state
 ;;;
 to update-Q-learning [action]
-
+  show "update-Q-learning"
+  show distancexy-sheep
   ; get previous Q-value
-  let previous-Q-value (get-Q-value prev-xcor prev-ycor action)
+  let previous-Q-value (get-Q-value (first distancexy-sheep) (last distancexy-sheep) action)
+
+
+  let actual-sheep-dist get-sheep-distance
+
 
   ; gets r + (lambda * max_a' Q(s',a')) - Q(s,a)
-  let prediction-error (reward + (discount-factor * get-max-Q-value xcor ycor) - previous-Q-value)
+  let prediction-error (reward + (discount-factor * get-max-Q-value (first actual-sheep-dist)  (first actual-sheep-dist)) - previous-Q-value)
 
   ; gets Q(s,a) + (alpha * (r + (lambda * max_a' Q(s',a') - Q(s,a)))
   let new-Q-value (previous-Q-value + (learning-rate * prediction-error))
 
   ; sets new Q-value
-  set-Q-value prev-xcor prev-ycor action new-Q-value
+  set-Q-value (first distancexy-sheep) (last distancexy-sheep) action new-Q-value
 end
 
 
@@ -461,7 +484,7 @@ GRAPHICS-WINDOW
 303
 13
 548
-198
+235
 -1
 -1
 38.5
@@ -475,9 +498,9 @@ GRAPHICS-WINDOW
 1
 1
 0
-3
+4
 0
-3
+4
 0
 0
 1
@@ -492,8 +515,8 @@ SLIDER
 Wolf_depth_of_field
 Wolf_depth_of_field
 1
-(SizeOfMap - 1.1) / 2
-9
+(floor SizeOfMap - 1) / 2
+2
 1
 1
 patches
@@ -552,9 +575,9 @@ NIL
 
 SLIDER
 14
-345
+298
 186
-378
+331
 max-episodes
 max-episodes
 0
@@ -574,16 +597,6 @@ action-selection
 action-selection
 "ε-greedy" "soft-max"
 0
-
-CHOOSER
-15
-291
-153
-336
-Learning-algorithm
-Learning-algorithm
-"SARSA" "Q-learning"
-1
 
 SLIDER
 17
@@ -639,9 +652,9 @@ get-total-time-steps
 
 SWITCH
 13
-390
+343
 177
-423
+376
 diagonal-movement
 diagonal-movement
 1
@@ -650,9 +663,9 @@ diagonal-movement
 
 SLIDER
 15
-435
+388
 187
-468
+421
 reward-collision
 reward-collision
 -10
@@ -665,14 +678,64 @@ HORIZONTAL
 
 SLIDER
 12
-482
+435
 184
-515
+468
 reward-value
 reward-value
 0
 10
 10
+1
+1
+NIL
+HORIZONTAL
+
+PLOT
+705
+265
+905
+415
+Time performance
+episode
+time-steps / moves
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" "set-plot-y-range  min-pycor max-pycor"
+PENS
+"time-steps" 1.0 0 -16777216 true "" ""
+
+PLOT
+961
+291
+1161
+441
+Reward-performance
+episode
+total reward
+0.0
+10.0
+0.0
+10.0
+true
+false
+"ask wolves [\n  let pen-name (word who \"reward\")\n  create-temporary-plot-pen pen-name\n  set-current-plot-pen pen-name\n  set-plot-pen-color (random color)\n]" ""
+PENS
+
+SLIDER
+320
+330
+528
+363
+movement-probability-sheep
+movement-probability-sheep
+0
+99
+0
 1
 1
 NIL
