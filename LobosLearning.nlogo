@@ -236,7 +236,20 @@ end
 ;;;  =================================================================
 
 to-report get-sheep-distance-xy[visible-sheep]
-  report (list (([xcor] of visible-sheep - xcor) + Wolf_depth_of_field) (([ycor] of visible-sheep - ycor) + Wolf_depth_of_field))
+  let real-distance-x get-real-distance ([xcor] of visible-sheep) xcor
+  let real-distance-y get-real-distance ([ycor] of visible-sheep) ycor
+  face visible-sheep
+  ifelse(90 <= heading and heading < 180)
+  [set real-distance-y (0 - real-distance-y)]
+  [ifelse (180 <= heading and heading < 270)
+     [set real-distance-x (0 - real-distance-x)
+      set real-distance-y (0 - real-distance-y)]
+     [if (270 <= heading and heading < 360)
+       [set real-distance-x (0 - real-distance-x)]]
+  ]
+ ; if([xcor] of visible-sheep) > xcor)
+
+  report (list (real-distance-x + Wolf_depth_of_field) (real-distance-y + Wolf_depth_of_field) )
 end
 
 to-report get-sheep-distance
@@ -247,6 +260,14 @@ to-report get-sheep-distance
   [report (list Wolf_depth_of_field Wolf_depth_of_field)]
 end
 
+
+to-report get-real-distance[x1 x2]
+  let dist max ( list (x1 - x2) (x2 - x1))
+  if(dist = 0)
+  [report 0]
+  report SizeOfMap mod dist
+
+end
 
 ;
 ;Returns the turtle to its previous position
@@ -371,7 +392,7 @@ to-report get-reward [action]
     report reward-collision
   ]
   [
-    ifelse (around-sheep?)
+    ifelse position-sheep != nobody and (count turtles-on [neighbors4] of position-sheep) = 4
     [
       report reward-value
     ]
@@ -413,8 +434,6 @@ end
 ;;;    - properties "prev-xcor" and "prev-ycor" give access to the previous state
 ;;;
 to update-Q-learning [action]
-  show "update-Q-learning"
-  show distancexy-sheep
   ; get previous Q-value
   let previous-Q-value (get-Q-value (first distancexy-sheep) (last distancexy-sheep) action)
 
@@ -481,10 +500,10 @@ to-report select-action-soft-max [x y]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-303
-13
-548
-235
+300
+25
+545
+286
 -1
 -1
 38.5
@@ -498,9 +517,9 @@ GRAPHICS-WINDOW
 1
 1
 0
-4
+5
 0
-4
+5
 0
 0
 1
@@ -582,7 +601,7 @@ max-episodes
 max-episodes
 0
 100
-100
+50
 1
 1
 NIL
@@ -607,7 +626,7 @@ learning-rate
 learning-rate
 0
 1
-1
+0.7
 0.1
 1
 NIL
@@ -622,17 +641,17 @@ discount-factor
 discount-factor
 0
 1
-1
+0.7
 0.1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-789
-67
-903
-112
+1269
+399
+1383
+444
 NIL
 get-episode-count
 17
@@ -640,10 +659,10 @@ get-episode-count
 11
 
 MONITOR
-788
-122
-912
-167
+1268
+454
+1392
+499
 NIL
 get-total-time-steps
 17
@@ -692,10 +711,10 @@ NIL
 HORIZONTAL
 
 PLOT
-705
-265
-905
-415
+1273
+46
+1473
+196
 Time performance
 episode
 time-steps / moves
@@ -710,10 +729,10 @@ PENS
 "time-steps" 1.0 0 -16777216 true "" ""
 
 PLOT
-961
-291
-1161
-441
+1271
+220
+1471
+370
 Reward-performance
 episode
 total reward
@@ -727,10 +746,10 @@ false
 PENS
 
 SLIDER
-320
-330
-528
-363
+8
+496
+216
+529
 movement-probability-sheep
 movement-probability-sheep
 0
