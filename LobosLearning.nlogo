@@ -90,7 +90,7 @@ to setup
     set Q-values get-initial-Q-values
     set reward 0
     set total-reward 0
-    set distancexy-sheep (list 0 0)
+    set distancexy-sheep (list Wolf_depth_of_field Wolf_depth_of_field)
   ]
 end
 
@@ -173,7 +173,7 @@ to reset
     set ycor init_ycor
     set prev-xcor xcor
     set prev-ycor ycor
-    set distancexy-sheep (list 0 0)
+    set distancexy-sheep (list Wolf_depth_of_field Wolf_depth_of_field)
   ]
 
  ask sheep[
@@ -503,7 +503,7 @@ GRAPHICS-WINDOW
 300
 25
 545
-286
+287
 -1
 -1
 38.5
