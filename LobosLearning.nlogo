@@ -93,8 +93,8 @@ to setup
     set total-reward 0
   ]
   ask wolves[
-    let list-turtles turtles with [myself != self]
-    set distancexy-turtles get-initial-distances]
+    let list-turtles agentset-to-list (turtles with [myself != self])
+    set distancexy-turtles get-initial-distances list-turtles]
 end
 
 ;;;
@@ -220,8 +220,9 @@ to reset-turtles-vars
     set prev-xcor xcor
     set prev-ycor ycor
    ; set prev-Q-values Q-values
-    set distancexy-sheep (list Wolf_depth_of_field Wolf_depth_of_field)
-  ]
+    let list-turtles agentset-to-list (turtles with [myself != self])
+    set distancexy-turtles get-initial-distances list-turtles
+    ]
 
   ask sheep[
     set xcor init_xcor
@@ -316,8 +317,8 @@ end
 
 to-report get-initial-distances[turtles-list]
   let table table:make
-  let distance (list Wolf_depth_of_field Wolf_depth_of_field)
-  foreach turtles-list [ table:put table ? distance]
+  let dist (list Wolf_depth_of_field Wolf_depth_of_field)
+  foreach turtles-list [ table:put table ? dist]
 end
 
 to backtrace-movements
@@ -554,6 +555,10 @@ to-report select-action-soft-max [x y]
   ;]
 
   ;report item action-index ACTION-LIST
+end
+
+to-report agentset-to-list [as]
+  report [self] of as
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
