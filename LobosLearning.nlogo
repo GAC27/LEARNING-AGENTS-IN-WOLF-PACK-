@@ -1,15 +1,14 @@
 ;;;
 ;;;  Use the "array" extension for easy and efficient Q-value storage
 ;;;
-extensions [array]
-
+extensions [array table]
 breed [sheep a-sheep]
 breed [wolves wolf]
 globals[ NUM-ACTIONS SizeOfMap epsilon temperature episode-count time-steps total-time-steps ACTION-LIST]
 
 turtles-own [ init_xcor init_ycor prev-xcor prev-ycor]
 ;distancexy-sheep = (Wolf_depth_of_field,Wolf_depth_of_field) quando não vê a ovelha
-wolves-own [Q-values reward total-reward last-action distancexy-sheep prev-Q-values]
+wolves-own [Q-values1 Q-values2 Q-values3 reward total-reward last-action distancexy-turtles]
 
 
 ;;;  =================================================================
@@ -87,12 +86,15 @@ to setup
     set heading 0
     set prev-xcor (xcor + max-pxcor)
     set prev-ycor (ycor + max-pycor)
-    set Q-values get-initial-Q-values
-    set prev-Q-values Q-values
+    set Q-values1 get-initial-Q-values
+    set Q-values2 get-initial-Q-values
+    set Q-values3 get-initial-Q-values
     set reward 0
     set total-reward 0
-    set distancexy-sheep (list Wolf_depth_of_field Wolf_depth_of_field)
   ]
+  ask wolves[
+    let list-turtles turtles with [myself != self]
+    set distancexy-turtles get-initial-distances]
 end
 
 ;;;
@@ -146,7 +148,7 @@ to go
       wolf-loop-reward
     ]
 
-    ;correct-collisions
+    correct-collisions
     set total-time-steps (total-time-steps + 1)
   ]
 end
@@ -158,7 +160,7 @@ to correct-collisions
   let collisions true
   while [collisions] [
     set collisions false
-    ask turtles [
+    ask sheep [
       if (count (turtles-on patch-here)) > 1[
         set collisions true
         ask (turtles-on patch-here)[
@@ -217,7 +219,7 @@ to reset-turtles-vars
     set ycor init_ycor
     set prev-xcor xcor
     set prev-ycor ycor
-    set prev-Q-values Q-values
+   ; set prev-Q-values Q-values
     set distancexy-sheep (list Wolf_depth_of_field Wolf_depth_of_field)
   ]
 
@@ -258,18 +260,11 @@ to wolf-loop-reward
   set total-reward (total-reward + reward)
 
   ; updates Q-value function
-  update-Q-value last-action
+  update-Q-value Q-values1 last-action
+  update-Q-value Q-values2 last-action
+  update-Q-value Q-values3 last-action
 end
 
-;recebe -0.1 se nao conseguir apanhar a ovelha
-to wolf-loop-fail-abort-reward
- ; gets reward
-  set reward get-reward last-action
-  set total-reward (total-reward + reward)
-
-  ; updates Q-value function
-  update-Q-value last-action
-end
 
 ;;;  =================================================================
 ;;;      Utils
@@ -314,9 +309,15 @@ end
 ;
 
 to-report get-initial-Q-values
-  report array:from-list n-values (2 * Wolf_depth_of_field + 1)  [
+  report array:from-list n-values (2 * Wolf_depth_of_field + 2)  [
     array:from-list n-values (2 * Wolf_depth_of_field + 1) [
       array:from-list n-values NUM-ACTIONS [0]]]
+end
+
+to-report get-initial-distances[turtles-list]
+  let table table:make
+  let distance (list Wolf_depth_of_field Wolf_depth_of_field)
+  foreach turtles-list [ table:put table ? distance]
 end
 
 to backtrace-movements
@@ -376,30 +377,30 @@ end
 ;;;
 ;;;  Gets the Q-values for a specific state (x y).
 ;;;
-to-report get-Q-values [x y]
+to-report get-Q-values [Q-values x y]
   report array:item (array:item Q-values x) y
 end
 
 ;;;
 ;;;  Gets the Q-value for a specific state-action pair (x y action).
 ;;;
-to-report get-Q-value [x y action]
-  let action-values get-Q-values x y
+to-report get-Q-value [Q-values x y action]
+  let action-values get-Q-values Q-values x y
   report array:item action-values (get-action-index action)
 end
 
 ;;;
 ;;;  Sets the Q-value for a specific state-action pair (x y action).
 ;;;
-to set-Q-value [x y action value]
-  array:set (get-Q-values x y) (get-action-index action) value
+to set-Q-value [Q-values x y action value]
+  array:set (get-Q-values Q-values x y) (get-action-index action) value
 end
 
 ;;;
 ;;;  Gets the maximum Q-value for a specific state (x y).
 ;;;
-to-report get-max-Q-value [x y]
-    report max array:to-list get-Q-values x y
+to-report get-max-Q-value [Q-values x y]
+    report max array:to-list get-Q-values Q-values x y
 end
 
 to-report get-action-index [ action ]
@@ -476,8 +477,8 @@ end
 ;;;
 ;;;  Updates the Q-value for a given action according to the selected learning algorithm ("SARSA" or "Q-learning").
 ;;;
-to update-Q-value [action]
-  update-Q-learning action
+to update-Q-value [Q-values action]
+  update-Q-learning Q-values action
 end
 
 
@@ -487,22 +488,22 @@ end
 ;;;    - use "get-Q-value" and "set-Q-value" to update the action-value function
 ;;;    - properties "prev-xcor" and "prev-ycor" give access to the previous state
 ;;;
-to update-Q-learning [action]
+to update-Q-learning [Q-values action]
   ; get previous Q-value
-  let previous-Q-value (get-Q-value (first distancexy-sheep) (last distancexy-sheep) action)
+  let previous-Q-value (get-Q-value Q-values (first distancexy-sheep) (last distancexy-sheep) action)
 
 
   let actual-sheep-dist get-sheep-distance
 
 
   ; gets r + (lambda * max_a' Q(s',a')) - Q(s,a)
-  let prediction-error (reward + (discount-factor * get-max-Q-value (first actual-sheep-dist)  (last actual-sheep-dist)) - previous-Q-value)
+  let prediction-error (reward + (discount-factor * get-max-Q-value Q-values (first actual-sheep-dist)  (last actual-sheep-dist)) - previous-Q-value)
 
   ; gets Q(s,a) + (alpha * (r + (lambda * max_a' Q(s',a') - Q(s,a)))
   let new-Q-value (previous-Q-value + (learning-rate * prediction-error))
 
   ; sets new Q-value
-  set-Q-value (first distancexy-sheep) (last distancexy-sheep) action new-Q-value
+  set-Q-value Q-values (first distancexy-sheep) (last distancexy-sheep) action new-Q-value
 end
 
 
@@ -512,6 +513,7 @@ end
 ;;;    - use "array:to-list" to convert an array to a list
 ;;;
 to-report select-action-e-greedy [x y]
+ ;TO DO
  ; checks dice against epsilon
   let dice random-float 1
   ifelse epsilon > dice [
@@ -520,8 +522,8 @@ to-report select-action-e-greedy [x y]
   ]
   [
     ; return max action
-    let action-values array:to-list (get-Q-values x y)
-    report item (position (max action-values) action-values) ACTION-LIST
+  ;  let action-values array:to-list (get-Q-values Q-values x y)
+   ; report item (position (max action-values) action-values) ACTION-LIST
   ]
 end
 
@@ -534,23 +536,24 @@ end
 ;;;
 to-report select-action-soft-max [x y]
 
+  ;TO DO
   ; gets action probs
-  let action-values array:to-list (get-Q-values x y)
-  let action-probs map [ (exp (? / temperature))  ] action-values
-  let sum-q sum action-probs
-  set action-probs map [ ? / sum-q ] action-probs
+  ;let action-values array:to-list (get-Q-values x y)
+  ;let action-probs map [ (exp (? / temperature))  ] action-values
+  ;let sum-q sum action-probs
+  ;set action-probs map [ ? / sum-q ] action-probs
 
   ; selects action based on dice
   let dice random-float 1
-  let prob-sum item 0 action-probs
+  ;let prob-sum item 0 action-probs
   let action-index 0
-  while [prob-sum < dice]
-  [
-    set action-index (action-index + 1)
-    set prob-sum (prob-sum + (item action-index action-probs))
-  ]
+  ;while [prob-sum < dice]
+  ;[
+   ; set action-index (action-index + 1)
+   ; set prob-sum (prob-sum + (item action-index action-probs))
+  ;]
 
-  report item action-index ACTION-LIST
+  ;report item action-index ACTION-LIST
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -680,7 +683,7 @@ learning-rate
 learning-rate
 0
 1
-0.9
+0.1
 0.1
 1
 NIL
@@ -823,7 +826,7 @@ reward-abort
 reward-abort
 -1
 0
--1
+-0.1
 0.1
 1
 NIL
@@ -1183,7 +1186,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3.1
+NetLogo 5.3
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
