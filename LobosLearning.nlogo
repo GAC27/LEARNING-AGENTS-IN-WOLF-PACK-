@@ -9,7 +9,7 @@ globals[ NUM-ACTIONS SizeOfMap epsilon temperature episode-count time-steps tota
 
 turtles-own [ init_xcor init_ycor prev-xcor prev-ycor]
 ;distancexy-sheep = (Wolf_depth_of_field,Wolf_depth_of_field) quando não vê a ovelha
-wolves-own [Q-values reward total-reward last-action distancexy-sheep]
+wolves-own [Q-values reward total-reward last-action distancexy-sheep prev-Q-values]
 
 
 ;;;  =================================================================
@@ -88,6 +88,7 @@ to setup
     set prev-xcor (xcor + max-pxcor)
     set prev-ycor (ycor + max-pycor)
     set Q-values get-initial-Q-values
+    set prev-Q-values Q-values
     set reward 0
     set total-reward 0
     set distancexy-sheep (list Wolf_depth_of_field Wolf_depth_of_field)
@@ -114,8 +115,15 @@ end
 ;;;  Step up the simulation
 ;;;
 to go
+  ;abortar o episodio passado 1500 time-steps (see Ono pag.3)
+  ;if (total-time-steps > 1500)[
+  ;  abort-episode
+  ;]
+
+
   ; if episode is finished starts new episode, otherwise ask each agent to update
-  ifelse episode-finished? [
+  ;abortar o episodio passado 1500 time-steps (see Ono pag.3)
+  ifelse episode-finished? or ((time-steps > 1500) and With-abort)[
     reset
     if episode-count >= max-episodes [stop]
   ]
@@ -125,20 +133,28 @@ to go
       set prev-ycor ycor
       wolf-loop-action
     ]
-  ;; the sheep act
-  ask sheep [
-     set prev-xcor xcor
-     set prev-ycor ycor
-    set heading ((random 4) * 90)
-    if (random 100) < movement-probability-sheep [
-      fd 1
+    ;; the sheep act
+    ask sheep [
+      set prev-xcor xcor
+      set prev-ycor ycor
+      set heading ((random 4) * 90)
+      if (random 100) < movement-probability-sheep [
+        fd 1
+      ]
     ]
-  ]
-  ask wolves [
+    ask wolves [
       wolf-loop-reward
     ]
 
-  ;;correct colisions
+    ;correct-collisions
+    set total-time-steps (total-time-steps + 1)
+  ]
+end
+
+;;;
+;;;Corrects collision through backtracing operations
+;;;
+to correct-collisions
   let collisions true
   while [collisions] [
     set collisions false
@@ -150,43 +166,18 @@ to go
         ]
       ]
     ]
-    set total-time-steps (total-time-steps + 1)
-  ]
   ]
 end
+
 
 ;;;
 ;;;  Starts a new learning episode by resetting the simulation.
 ;;;
 to reset
-
-  ask wolves [
-    ;plot reward in episode
-    set-current-plot "Reward-performance"
-    create-temporary-plot-pen (word who "reward")
-    set-plot-pen-color (color - who * 10)
-    plot total-reward
-    set total-reward 0
-
-    ; reset positions
-    set xcor init_xcor
-    set ycor init_ycor
-    set prev-xcor xcor
-    set prev-ycor ycor
-    set distancexy-sheep (list Wolf_depth_of_field Wolf_depth_of_field)
-  ]
-
- ask sheep[
-   set xcor init_xcor
-   set ycor init_ycor
-   set prev-xcor xcor
-   set prev-ycor ycor
- ]
-
-
+  reset-turtles-vars
   ;plots and update variables
   set-current-plot "Time performance"
-  set-current-plot-pen "time-steps"
+   create-temporary-plot-pen "time-steps"
   plot time-steps
 
   set episode-count (episode-count + 1)
@@ -198,6 +189,45 @@ to reset
 
 end
 
+;;;
+;;;Aborts and re-starts the current learning episode
+;;;
+to abort-episode
+  reset-turtles-vars
+  set time-steps 0
+end
+
+
+
+;;;
+;;;
+;;;
+to reset-turtles-vars
+  reset-ticks
+  ask wolves [
+    ;plot reward in episode
+    set-current-plot "Reward-performance"
+    create-temporary-plot-pen (word who "reward")
+    set-plot-pen-color (who + who)
+    plot total-reward
+    set total-reward 0
+
+    ; reset positions
+    set xcor init_xcor
+    set ycor init_ycor
+    set prev-xcor xcor
+    set prev-ycor ycor
+    set prev-Q-values Q-values
+    set distancexy-sheep (list Wolf_depth_of_field Wolf_depth_of_field)
+  ]
+
+  ask sheep[
+    set xcor init_xcor
+    set ycor init_ycor
+    set prev-xcor xcor
+    set prev-ycor ycor
+  ]
+end
 
 
 
@@ -223,6 +253,16 @@ to wolf-loop-action
 end
 
 to wolf-loop-reward
+ ; gets reward
+  set reward get-reward last-action
+  set total-reward (total-reward + reward)
+
+  ; updates Q-value function
+  update-Q-value last-action
+end
+
+;recebe -0.1 se nao conseguir apanhar a ovelha
+to wolf-loop-fail-abort-reward
  ; gets reward
   set reward get-reward last-action
   set total-reward (total-reward + reward)
@@ -387,19 +427,33 @@ end
 ;;;  Gets the reward related with the current state and a given action (x y action).
 ;;;
 to-report get-reward [action]
-  ifelse (collision?)
-  [
-    report reward-collision
-  ]
-  [
-    ifelse position-sheep != nobody and (count turtles-on [neighbors4] of position-sheep) = 4
+  ;ifelse (collision?)
+  ;[
+  ;  report reward-collision
+  ;]
+
+  ;ifelse (total-time-steps = 1500)
+  ;[
+  ;  report reward-abort
+  ;]
+  ;[
+  ;  ifelse position-sheep != nobody and (count turtles-on [neighbors4] of position-sheep) = 4
+  ;  [
+  ;    report reward-value
+  ;  ]
+  ;  [
+  ;    report 0
+  ;  ]
+  ;]
+
+
+   ifelse around-sheep?
     [
       report reward-value
     ]
     [
-      report 0
+      report reward-abort
     ]
-  ]
 end
 
 
@@ -442,7 +496,7 @@ to update-Q-learning [action]
 
 
   ; gets r + (lambda * max_a' Q(s',a')) - Q(s,a)
-  let prediction-error (reward + (discount-factor * get-max-Q-value (first actual-sheep-dist)  (first actual-sheep-dist)) - previous-Q-value)
+  let prediction-error (reward + (discount-factor * get-max-Q-value (first actual-sheep-dist)  (last actual-sheep-dist)) - previous-Q-value)
 
   ; gets Q(s,a) + (alpha * (r + (lambda * max_a' Q(s',a') - Q(s,a)))
   let new-Q-value (previous-Q-value + (learning-rate * prediction-error))
@@ -593,29 +647,29 @@ NIL
 1
 
 SLIDER
-14
-298
-186
-331
+15
+268
+187
+301
 max-episodes
 max-episodes
 0
-100
-50
+10000
+10000
 1
 1
 NIL
 HORIZONTAL
 
 CHOOSER
-16
-237
-154
-282
+15
+219
+153
+264
 action-selection
 action-selection
 "ε-greedy" "soft-max"
-0
+1
 
 SLIDER
 17
@@ -626,7 +680,7 @@ learning-rate
 learning-rate
 0
 1
-0.7
+0.9
 0.1
 1
 NIL
@@ -641,17 +695,17 @@ discount-factor
 discount-factor
 0
 1
-0.7
+0.9
 0.1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-1269
-399
-1383
-444
+733
+355
+847
+400
 NIL
 get-episode-count
 17
@@ -659,10 +713,10 @@ get-episode-count
 11
 
 MONITOR
-1268
-454
-1392
-499
+732
+410
+856
+455
 NIL
 get-total-time-steps
 17
@@ -670,10 +724,10 @@ get-total-time-steps
 11
 
 SWITCH
-13
-343
-177
-376
+14
+306
+178
+339
 diagonal-movement
 diagonal-movement
 1
@@ -681,10 +735,10 @@ diagonal-movement
 -1000
 
 SLIDER
-15
-388
-187
-421
+6
+343
+178
+376
 reward-collision
 reward-collision
 -10
@@ -696,25 +750,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-12
-435
-184
-468
+7
+378
+179
+411
 reward-value
 reward-value
 0
 10
-10
+1
 1
 1
 NIL
 HORIZONTAL
 
 PLOT
-1273
-46
-1473
-196
+727
+10
+1022
+187
 Time performance
 episode
 time-steps / moves
@@ -729,10 +783,10 @@ PENS
 "time-steps" 1.0 0 -16777216 true "" ""
 
 PLOT
-1271
-220
-1471
-370
+730
+198
+930
+348
 Reward-performance
 episode
 total reward
@@ -746,10 +800,10 @@ false
 PENS
 
 SLIDER
-8
-496
-216
-529
+6
+412
+214
+445
 movement-probability-sheep
 movement-probability-sheep
 0
@@ -759,6 +813,32 @@ movement-probability-sheep
 1
 NIL
 HORIZONTAL
+
+SLIDER
+6
+446
+178
+479
+reward-abort
+reward-abort
+-1
+0
+-1
+0.1
+1
+NIL
+HORIZONTAL
+
+SWITCH
+6
+481
+122
+514
+With-abort
+With-abort
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
