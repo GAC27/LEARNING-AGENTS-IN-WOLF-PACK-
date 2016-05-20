@@ -91,7 +91,6 @@ to setup
     set Q-values3 get-initial-Q-values
     set reward 0
     set total-reward 0
-    set last-action (list 0 0)
   ]
   ask wolves[
     let list-turtles agentset-to-list (turtles with [myself != self])
@@ -214,7 +213,7 @@ to reset-turtles-vars
    ; set prev-Q-values Q-values
     let list-turtles agentset-to-list (turtles with [myself != self])
     set distancexy-turtles get-initial-distances list-turtles
-    set last-action (list 0 0)
+
     ]
 
   ask sheep[
@@ -237,6 +236,7 @@ to wolf-loop-action
    table:put distancexy-turtles [who] of ? (get-turtle-distance ?)
   ]
   let action select-action
+  set last-action action
 
   ; updates environmet
   execute-action action
