@@ -153,6 +153,7 @@ to go
   ]
 end
 
+
 ;;;
 ;;;Corrects collision through backtracing operations
 ;;;
@@ -232,6 +233,7 @@ end
 ;;;
 to wolf-loop-action
   let visible-agents (agentset-to-list turtles with [self != myself])
+  set visible-agents sort visible-agents
   foreach visible-agents[
    table:put distancexy-turtles [who] of ? (get-turtle-distance ?)
   ]
@@ -249,7 +251,6 @@ to wolf-loop-reward
 
   let wolves-sorted sort (turtles with [self != myself and self != (a-sheep 0)])
   ; updates Q-value function
-  show last-action
   update-Q-value Q-values1 (item 0 wolves-sorted) last-action
   update-Q-value Q-values2 (item 1 wolves-sorted) last-action
   update-Q-value Q-values3 (item 2 wolves-sorted) last-action
@@ -283,7 +284,7 @@ to-report get-turtle-distance[visible-turtle]
   ifelse(is-visible-turtle? visible-turtle)
   [report get-visible-turtle-distance visible-turtle]
   [
-    ifelse ([breed] of visible-turtle = wolves)
+    ifelse (([breed] of visible-turtle) = wolves)
     [
       report (list (Wolf_depth_of_field * 2 + 1) 0)
     ]
@@ -403,7 +404,6 @@ end
 ;;;
 to-report get-Q-value [Q-values x-sheep y-sheep x-wolf y-wolf action]
   let action-values get-Q-values Q-values x-sheep y-sheep x-wolf y-wolf
-  show action
   report array:item action-values (get-action-index action)
 end
 
@@ -513,8 +513,8 @@ to update-Q-learning [Q-values wolf action]
   let previous-Q-value (get-Q-value Q-values (first sheep-distance) (last sheep-distance) (first wolf-distance) (last wolf-distance) action)
 
 
-  let actual-sheep-dist get-turtle-distance [who] of (a-sheep 0)
-  let actual-wolf-dist get-turtle-distance [who] of wolf
+  let actual-sheep-dist get-turtle-distance (a-sheep 0)
+  let actual-wolf-dist get-turtle-distance wolf
 
   ; gets r + (lambda * max_a' Q(s',a')) - Q(s,a)
   let prediction-error (reward + (discount-factor * get-max-Q-value Q-values (first actual-sheep-dist) (last actual-sheep-dist) (first actual-wolf-dist) (last actual-wolf-dist) ) - previous-Q-value)
@@ -547,10 +547,11 @@ to-report select-action-e-greedy
 end
 
 to-report get-Q-values-summed
-  let turtle-distance (table:get distancexy-turtles (a-sheep 0))
+  let turtle-distance (table:get distancexy-turtles [who] of (a-sheep 0))
   let wolves-distance []
   foreach sort (turtles with [self != myself and self != (a-sheep 0)])[
-    set wolves-distance fput wolves-distance (table:get distancexy-turtles ?)
+    let el (table:get distancexy-turtles [who] of ?)
+    set wolves-distance fput el wolves-distance
   ]
   let action-values1 get-Q-values Q-values1 (first turtle-distance) (last turtle-distance) (first (item 0 wolves-distance)) (last (item 0 wolves-distance))
   let action-values2 get-Q-values Q-values2 (first turtle-distance) (last turtle-distance) (first (item 1 wolves-distance)) (last (item 1 wolves-distance))
@@ -814,7 +815,7 @@ HORIZONTAL
 PLOT
 727
 10
-1022
+1337
 187
 Time performance
 episode
