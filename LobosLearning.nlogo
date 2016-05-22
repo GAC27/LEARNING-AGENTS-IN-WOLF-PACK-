@@ -4,7 +4,7 @@
 extensions [array table]
 breed [sheep a-sheep]
 breed [wolves wolf]
-globals[ NUM-ACTIONS SizeOfMap epsilon temperature episode-count time-steps total-time-steps ACTION-LIST]
+globals[ NUM-ACTIONS SizeOfMap epsilon episode-count time-steps total-time-steps ACTION-LIST]
 
 turtles-own [ init_xcor init_ycor prev-xcor prev-ycor]
 ;distancexy-sheep = (Wolf_depth_of_field,Wolf_depth_of_field) quando não vê a ovelha
@@ -34,7 +34,6 @@ to set-globals
   set time-steps 0
   set episode-count 0
   set epsilon 1
-  set temperature 100
   ; defines list of actions as (x y) move increments
   set ACTION-LIST (list
     list 0 0    ; no-move
@@ -92,9 +91,14 @@ to setup
     set reward 0
     set total-reward 0
   ]
-  ask wolves[
+  ask wolves [
     let list-turtles agentset-to-list (turtles with [myself != self])
-    set distancexy-turtles get-initial-distances list-turtles]
+    set distancexy-turtles get-initial-distances list-turtles
+
+    print Q-values1
+    print Q-values2
+    print Q-values3
+    ]
 end
 
 ;;;
@@ -117,6 +121,7 @@ end
 ;;;  Step up the simulation
 ;;;
 to go
+  print "tick start"
   ;abortar o episodio passado 1500 time-steps (see Ono pag.3)
   ;if (total-time-steps > 1500)[
   ;  abort-episode
@@ -126,10 +131,14 @@ to go
   ; if episode is finished starts new episode, otherwise ask each agent to update
   ;abortar o episodio passado 1500 time-steps (see Ono pag.3)
   ifelse episode-finished? or ((time-steps > 1500) and With-abort)[
+    stop
     reset
     if episode-count >= max-episodes [stop]
   ]
   [
+    ask wolves[
+      wolf-loop-think
+    ]
     ask wolves [
       set prev-xcor xcor
       set prev-ycor ycor
@@ -188,8 +197,6 @@ to reset
 
   ; linearly decrease explorations over time
   set epsilon max list 0 (1 - (episode-count / max-episodes))
-  set temperature max list 0.8 (epsilon * 10)
-
 end
 
 
@@ -225,6 +232,13 @@ to reset-turtles-vars
   ]
 end
 
+to wolf-loop-think
+  let other-agents (agentset-to-list turtles with [self != myself])
+  set other-agents sort other-agents
+  foreach other-agents[
+   table:put distancexy-turtles [who] of ? (get-turtle-distance ?)
+  ]
+end
 
 
 
@@ -232,11 +246,6 @@ end
 ;;;  wolf's updating procedure, which defines the rules of its behaviors
 ;;;
 to wolf-loop-action
-  let visible-agents (agentset-to-list turtles with [self != myself])
-  set visible-agents sort visible-agents
-  foreach visible-agents[
-   table:put distancexy-turtles [who] of ? (get-turtle-distance ?)
-  ]
   let action select-action
   set last-action action
 
@@ -246,14 +255,16 @@ end
 
 to wolf-loop-reward
  ; gets reward
+ show "Entrei"
   set reward get-reward last-action
   set total-reward (total-reward + reward)
 
-  let wolves-sorted sort (turtles with [self != myself and self != (a-sheep 0)])
+  let other-wolves-sorted sort (turtles with [self != myself and self != (a-sheep 0)])
   ; updates Q-value function
-  update-Q-value Q-values1 (item 0 wolves-sorted) last-action
-  update-Q-value Q-values2 (item 1 wolves-sorted) last-action
-  update-Q-value Q-values3 (item 2 wolves-sorted) last-action
+  update-Q-value Q-values1 (item 0 other-wolves-sorted) last-action
+  update-Q-value Q-values2 (item 1 other-wolves-sorted) last-action
+  update-Q-value Q-values3 (item 2 other-wolves-sorted) last-action
+  show "Sai"
 end
 
 
@@ -280,11 +291,13 @@ to-report get-visible-turtle-distance[visible-turtle]
   report (list (real-distance-x + Wolf_depth_of_field) (real-distance-y + Wolf_depth_of_field) )
 end
 
-to-report get-turtle-distance[visible-turtle]
-  ifelse(is-visible-turtle? visible-turtle)
-  [report get-visible-turtle-distance visible-turtle]
+to-report get-turtle-distance[a-turtle]
+  ifelse (is-visible-turtle? a-turtle)
   [
-    ifelse (([breed] of visible-turtle) = wolves)
+    report get-visible-turtle-distance a-turtle
+  ]
+  [
+    ifelse (([breed] of a-turtle) = wolves)
     [
       report (list (Wolf_depth_of_field * 2 + 1) 0)
     ]
@@ -294,18 +307,14 @@ to-report get-turtle-distance[visible-turtle]
    ]
 end
 
-to-report is-visible-turtle? [visible-turtle]
-  report any? visible-turtles with [self = visible-turtle]
+to-report is-visible-turtle? [a-turtle]
+  report any? visible-turtles with [self = a-turtle]
 
 end
 
 
 to-report get-real-distance[x1 x2]
-  let dist max ( list (x1 - x2) (x2 - x1))
-  if(dist = 0)
-  [report 0]
-  report SizeOfMap mod dist
-
+  report min list (abs (x1 - x2)) (SizeOfMap - (abs (x1 - x2)))
 end
 
 ;
@@ -318,18 +327,19 @@ to-report get-initial-Q-values
       array:from-list n-values (2 * Wolf_depth_of_field + 2) [
         array:from-list n-values (2 * Wolf_depth_of_field + 1) [
           array:from-list n-values NUM-ACTIONS [0]]]]]
+  ; 0.01 + random-float 0.1
 end
 
 to-report get-initial-distances[turtles-list]
   let table table:make
-  let dist (list Wolf_depth_of_field Wolf_depth_of_field)
+  let dist-sheep (list Wolf_depth_of_field Wolf_depth_of_field)
   let dist-wolf (list (Wolf_depth_of_field * 2 + 1) 0)
   foreach turtles-list [
     ifelse ([breed] of ? = wolves)[
       table:put table [who] of ? dist-wolf
     ]
     [
-      table:put table [who] of ? dist
+      table:put table [who] of ? dist-sheep
     ]  ]
   report table
 end
@@ -377,19 +387,7 @@ end
 
 
 to-report episode-finished?
-  ;Stoping condition test
-  let wolves-in-position 0
-  ask wolves [
-    if around-sheep?[
-      set wolves-in-position (wolves-in-position + 1)
-    ]
-  ]
-  ifelse wolves-in-position = 4[
-    report true
-  ]
-  [
-    report false
-  ]
+  report captured-sheep? (a-sheep 0)
 end
 
 ;;;
@@ -418,7 +416,14 @@ end
 ;;;  Gets the maximum Q-value for a specific state (x y).
 ;;;
 to-report get-max-Q-value [Q-values x-sheep y-sheep x-wolf y-wolf]
-    report max array:to-list get-Q-values Q-values x-sheep y-sheep x-wolf y-wolf
+  ;write "get-max-Q-value"
+  ;write x-sheep
+  ;write y-sheep
+  ;write x-wolf
+  ;write y-wolf
+  let values array:to-list get-Q-values Q-values x-sheep y-sheep x-wolf y-wolf
+  ;print values
+  report max values
 end
 
 to-report get-action-index [ action ]
@@ -446,26 +451,9 @@ end
 ;;;  Gets the reward related with the current state and a given action (x y action).
 ;;;
 to-report get-reward [action]
-  ;ifelse (collision?)
-  ;[
-  ;  report reward-collision
-  ;]
-
-  ;ifelse (total-time-steps = 1500)
-  ;[
-  ;  report reward-abort
-  ;]
-  ;[
-  ;  ifelse position-sheep != nobody and (count turtles-on [neighbors4] of position-sheep) = 4
-  ;  [
-  ;    report reward-value
-  ;  ]
-  ;  [
-  ;    report 0
-  ;  ]
-  ;]
-   ifelse position-sheep != nobody and (count turtles-on [neighbors4] of position-sheep) = 4
+  ifelse position-sheep != nobody and captured-sheep? position-sheep
     [
+      print "captured sheep!"
       report reward-value
     ]
     [
@@ -474,7 +462,10 @@ to-report get-reward [action]
 end
 
 
-
+to-report captured-sheep? [the-sheep]
+  let neighbors-with-only-one-agent ([neighbors4] of the-sheep) with [ count turtles-here = 1 ]
+  report count neighbors-with-only-one-agent = 4
+end
 
 
 ;;;  =================================================================
@@ -505,25 +496,58 @@ end
 ;;;    - properties "prev-xcor" and "prev-ycor" give access to the previous state
 ;;;
 to update-Q-learning [Q-values wolf action]
+  ;write "update-Q-leearning"
+  ;write "who="
+  ;write who
+  ;write "action="
+  ;write action
+  ;write "Q-values="
+  ;print Q-values
 
-  let sheep-distance (table:get distancexy-turtles [who] of (a-sheep 0))
-  let wolf-distance (table:get distancexy-turtles ([who] of wolf))
+  let index-sheep (table:get distancexy-turtles [who] of (a-sheep 0))
+  let index-wolf (table:get distancexy-turtles ([who] of wolf))
+
+  ;write "index-sheep="
+  ;write index-sheep
+  ;write "index-wolf="
+  ;write index-wolf
+  ;print ""
 
   ; get previous Q-value
-  let previous-Q-value (get-Q-value Q-values (first sheep-distance) (last sheep-distance) (first wolf-distance) (last wolf-distance) action)
+  let previous-Q-value (get-Q-value Q-values (first index-sheep) (last index-sheep) (first index-wolf) (last index-wolf) action)
 
+  let current-index-sheep get-turtle-distance (a-sheep 0)
+  let current-index-wolf get-turtle-distance wolf
 
-  let actual-sheep-dist get-turtle-distance (a-sheep 0)
-  let actual-wolf-dist get-turtle-distance wolf
+  ;write "current-index-sheep="
+  ;write current-index-sheep
+  ;write "current-index-wolf="
+  ;write current-index-wolf
+  ;print ""
 
   ; gets r + (lambda * max_a' Q(s',a')) - Q(s,a)
-  let prediction-error (reward + (discount-factor * get-max-Q-value Q-values (first actual-sheep-dist) (last actual-sheep-dist) (first actual-wolf-dist) (last actual-wolf-dist) ) - previous-Q-value)
+  let maxQsa get-max-Q-value Q-values (first current-index-sheep) (last current-index-sheep) (first current-index-wolf) (last current-index-wolf)
+  let prediction-error (reward + (discount-factor * maxQsa) - previous-Q-value)
 
   ; gets Q(s,a) + (alpha * (r + (lambda * max_a' Q(s',a') - Q(s,a)))
   let new-Q-value (previous-Q-value + (learning-rate * prediction-error))
 
   ; sets new Q-value
-  set-Q-value Q-values (first sheep-distance) (last sheep-distance) (first wolf-distance) (last wolf-distance) action new-Q-value
+  set-Q-value Q-values (first index-sheep) (last index-sheep) (first index-wolf) (last index-wolf) action new-Q-value
+
+  ;write wolf
+  ;write " max="
+  ;write maxQsa
+  ;write "pred="
+  ;write prediction-error
+  ;write " prev="
+  ;write previous-Q-value
+  ;write " new="
+  ;write new-Q-value
+
+  ;print ""
+  ;print ""
+  ;print ""
 end
 
 
@@ -563,38 +587,6 @@ to-report get-Q-values-summed
     set i (i + 1)
   ]
   report (array:to-list action-values1)
-
-end
-
-
-
-
-;;;
-;;;  Chooses an action according to the soft-max method.
-;;;  Tips:
-;;;    - use "array:to-list" to convert an array to a list
-;;;    - use "map" to create a list based on values of another list
-;;;
-to-report select-action-soft-max [x y]
-
-  ;TO DO
-  ; gets action probs
-  ;let action-values array:to-list (get-Q-values x y)
-  ;let action-probs map [ (exp (? / temperature))  ] action-values
-  ;let sum-q sum action-probs
-  ;set action-probs map [ ? / sum-q ] action-probs
-
-  ; selects action based on dice
-  let dice random-float 1
-  ;let prob-sum item 0 action-probs
-  let action-index 0
-  ;while [prob-sum < dice]
-  ;[
-   ; set action-index (action-index + 1)
-   ; set prob-sum (prob-sum + (item action-index action-probs))
-  ;]
-
-  ;report item action-index ACTION-LIST
 end
 
 to-report agentset-to-list [as]
@@ -703,7 +695,7 @@ max-episodes
 max-episodes
 0
 10000
-10000
+382
 1
 1
 NIL
@@ -717,7 +709,7 @@ CHOOSER
 action-selection
 action-selection
 "ε-greedy" "soft-max"
-1
+0
 
 SLIDER
 17
@@ -783,21 +775,6 @@ diagonal-movement
 -1000
 
 SLIDER
-6
-343
-178
-376
-reward-collision
-reward-collision
--10
-0
--10
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
 7
 378
 179
@@ -815,7 +792,7 @@ HORIZONTAL
 PLOT
 727
 10
-1337
+1854
 187
 Time performance
 episode
@@ -884,7 +861,7 @@ SWITCH
 514
 With-abort
 With-abort
-0
+1
 1
 -1000
 
@@ -1231,7 +1208,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3
+NetLogo 5.3.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
