@@ -91,13 +91,26 @@ to setup
     set reward 0
     set total-reward 0
   ]
+  ask wolf 1[
+   set color red
+  ]
+  ask wolf 2[
+   set color yellow
+  ]
+  ask wolf 3[
+   set color blue
+  ]
+  ask wolf 4[
+   set color pink
+  ]
+
   ask wolves [
     let list-turtles agentset-to-list (turtles with [myself != self])
     set distancexy-turtles get-initial-distances list-turtles
 
-    print Q-values1
-    print Q-values2
-    print Q-values3
+    ;print Q-values1
+    ;print Q-values2
+    ;print Q-values3
     ]
 end
 
@@ -121,7 +134,7 @@ end
 ;;;  Step up the simulation
 ;;;
 to go
-  print "tick start"
+  ;print "tick start"
   ;abortar o episodio passado 1500 time-steps (see Ono pag.3)
   ;if (total-time-steps > 1500)[
   ;  abort-episode
@@ -131,7 +144,7 @@ to go
   ; if episode is finished starts new episode, otherwise ask each agent to update
   ;abortar o episodio passado 1500 time-steps (see Ono pag.3)
   ifelse episode-finished? or ((time-steps > 1500) and With-abort)[
-    stop
+    ;stop
     reset
     if episode-count >= max-episodes [stop]
   ]
@@ -144,6 +157,7 @@ to go
       set prev-ycor ycor
       wolf-loop-action
     ]
+
     ;; the sheep act
     ask sheep [
       set prev-xcor xcor
@@ -153,11 +167,18 @@ to go
         fd 1
       ]
     ]
+
+
+    correct-collisions
+
     ask wolves [
       wolf-loop-reward
     ]
 
-    correct-collisions
+    ; increases action count
+    set time-steps (time-steps + 1)
+
+
     set total-time-steps (total-time-steps + 1)
   ]
 end
@@ -209,7 +230,7 @@ to reset-turtles-vars
     ;plot reward in episode
     set-current-plot "Reward-performance"
     create-temporary-plot-pen (word who "reward")
-    set-plot-pen-color (who + who)
+    set-plot-pen-color ([color] of self)
     plot total-reward
     set total-reward 0
 
@@ -255,7 +276,7 @@ end
 
 to wolf-loop-reward
  ; gets reward
- show "Entrei"
+ ;show "Entrei"
   set reward get-reward last-action
   set total-reward (total-reward + reward)
 
@@ -264,7 +285,7 @@ to wolf-loop-reward
   update-Q-value Q-values1 (item 0 other-wolves-sorted) last-action
   update-Q-value Q-values2 (item 1 other-wolves-sorted) last-action
   update-Q-value Q-values3 (item 2 other-wolves-sorted) last-action
-  show "Sai"
+  ;show "Sai"
 end
 
 
@@ -326,7 +347,7 @@ to-report get-initial-Q-values
     array:from-list n-values (2 * Wolf_depth_of_field + 1) [
       array:from-list n-values (2 * Wolf_depth_of_field + 2) [
         array:from-list n-values (2 * Wolf_depth_of_field + 1) [
-          array:from-list n-values NUM-ACTIONS [0]]]]]
+          array:from-list n-values NUM-ACTIONS [0.01 + random-float 0.1]]]]]
   ; 0.01 + random-float 0.1
 end
 
@@ -443,7 +464,7 @@ to execute-action [action]
   set ycor ycor + last action
 
   ; increases action count
-  set time-steps (time-steps + 1)
+  ;set time-steps (time-steps + 1)
 
 end
 
@@ -451,13 +472,20 @@ end
 ;;;  Gets the reward related with the current state and a given action (x y action).
 ;;;
 to-report get-reward [action]
+  ;show "getting-reward"
   ifelse position-sheep != nobody and captured-sheep? position-sheep
     [
-      print "captured sheep!"
+      ;print "captured sheep!"
       report reward-value
     ]
     [
-      report reward-abort
+      ;ifelse around-sheep? and (count turtles-on patch-here = 1)[
+        ;print "near-sheep"
+        ;report reward-value
+      ;]
+      ;[
+        report reward-abort
+      ;]
     ]
 end
 
@@ -561,7 +589,7 @@ to-report select-action-e-greedy
   let dice random-float 1
   ifelse epsilon > dice [
      ;return random action
-    report item (random NUM-ACTIONS) ACTION-LIST
+   report item (random NUM-ACTIONS) ACTION-LIST
   ]
   [
     ;return max action
@@ -573,19 +601,21 @@ end
 to-report get-Q-values-summed
   let turtle-distance (table:get distancexy-turtles [who] of (a-sheep 0))
   let wolves-distance []
-  foreach sort (turtles with [self != myself and self != (a-sheep 0)])[
+  foreach (sort (wolves with [self != myself])) [
     let el (table:get distancexy-turtles [who] of ?)
-    set wolves-distance fput el wolves-distance
+    set wolves-distance lput el wolves-distance
   ]
   let action-values1 get-Q-values Q-values1 (first turtle-distance) (last turtle-distance) (first (item 0 wolves-distance)) (last (item 0 wolves-distance))
   let action-values2 get-Q-values Q-values2 (first turtle-distance) (last turtle-distance) (first (item 1 wolves-distance)) (last (item 1 wolves-distance))
   let action-values3 get-Q-values Q-values3 (first turtle-distance) (last turtle-distance) (first (item 2 wolves-distance)) (last (item 2 wolves-distance))
+
   let i 0
   while [i < NUM-ACTIONS]
   [
     array:set action-values1 i ((array:item action-values1 i) + (array:item action-values2 i) + (array:item action-values3 i))
     set i (i + 1)
   ]
+
   report (array:to-list action-values1)
 end
 
@@ -695,7 +725,7 @@ max-episodes
 max-episodes
 0
 10000
-382
+1975
 1
 1
 NIL
@@ -808,10 +838,10 @@ PENS
 "time-steps" 1.0 0 -16777216 true "" ""
 
 PLOT
-730
-198
-930
-348
+728
+189
+1854
+339
 Reward-performance
 episode
 total reward
@@ -861,7 +891,7 @@ SWITCH
 514
 With-abort
 With-abort
-1
+0
 1
 -1000
 
@@ -1208,7 +1238,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3.1
+NetLogo 5.3
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
