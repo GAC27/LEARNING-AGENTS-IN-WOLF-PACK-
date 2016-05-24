@@ -89,6 +89,8 @@ to setup-turtles
     set-random-position
     set init_xcor xcor
     set init_ycor ycor
+    set prev-xcor xcor
+    set prev-ycor ycor
     set heading 0
   ]
 
@@ -186,6 +188,12 @@ end
 ;;;  Starts a new learning episode by resetting the simulation.
 ;;;
 to reset
+  ask sheep[; reset positions
+    set xcor init_xcor
+    set ycor init_ycor
+    set prev-xcor xcor
+    set prev-ycor ycor
+  ]
 
   ask wolves [
     ; plot reward in episode
@@ -199,6 +207,10 @@ to reset
     set ycor init_ycor
     set prev-xcor xcor
     set prev-ycor ycor
+  ]
+
+  ask wolves [
+   update-state
   ]
 
   ; plots and update variables
@@ -565,8 +577,8 @@ end
 GRAPHICS-WINDOW
 300
 25
-695
-441
+545
+248
 -1
 -1
 38.5
@@ -580,9 +592,9 @@ GRAPHICS-WINDOW
 1
 1
 0
-9
+4
 0
-9
+4
 0
 0
 1
@@ -664,7 +676,7 @@ max-episodes
 max-episodes
 0
 10000
-7100
+1000
 1
 1
 NIL
@@ -792,7 +804,7 @@ movement-probability-sheep
 movement-probability-sheep
 0
 99
-25
+0
 1
 1
 NIL
