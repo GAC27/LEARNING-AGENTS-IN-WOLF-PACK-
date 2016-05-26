@@ -63,12 +63,22 @@ to setup
   [
     set color black
     set size 1  ;; easier to see
-    setxy (round random-xcor) (round random-ycor)
+    set-random-position
     set heading 0
     init-wolf
   ]
 
 
+end
+
+;;;
+;;;  Sets the turtle in a random, empty position
+;;;
+to set-random-position
+  setxy random-pxcor random-pycor
+  while [any? other turtles-here] [
+    setxy random-pxcor random-pycor
+  ]
 end
 
 
@@ -117,16 +127,11 @@ to go
   ask wolves [
       set prev-xcor xcor
       set prev-ycor ycor
-      wolf-act-loop
+ ;     wolf-act-loop
   ]
   ;; the sheep act
   ask sheep [
-    set prev-xcor xcor
-     set prev-ycor ycor
-    set heading ((random 4) * 90)
-    if (random 100) > 25 [
-      fd 1
-    ]
+    sheep-loop
   ]
   ;;correct colisions
   while [collisions] [
@@ -141,6 +146,54 @@ to go
     ]
   ]
 end
+
+
+to sheep-loop
+  ifelse( reactive-sheep )[
+    let threat (wolves-on (patches in-radius Sheep_depth_of_field))
+    set threat agentset-to-list threat
+
+    ifelse length threat = 0[
+      random-loop
+    ]
+    [
+      let degrees-of-threat []
+      foreach threat[
+        face ?
+        set degrees-of-threat lput heading degrees-of-threat
+      ]
+
+      let avg-degree-of-threat 0
+      foreach degrees-of-threat[
+        set avg-degree-of-threat (avg-degree-of-threat + ?)
+      ]
+      set avg-degree-of-threat ( avg-degree-of-threat / (length threat) )
+
+      set avg-degree-of-threat (avg-degree-of-threat + 180 )
+
+      set heading avg-degree-of-threat
+
+      set heading ((floor (heading / 90) ) * 90)
+
+      fd 1
+
+    ]
+  ]
+  [
+    random-loop
+  ]
+
+end
+
+to random-loop
+  set prev-xcor xcor
+    set prev-ycor ycor
+    set heading ((random 4) * 90)
+    if (random 100) > 25 [
+      fd 1
+    ]
+end
+
 
 
 ;;;
@@ -688,11 +741,11 @@ end
 GRAPHICS-WINDOW
 392
 41
-822
-492
+659
+329
 -1
 -1
-20.0
+25.7
 1
 10
 1
@@ -703,9 +756,9 @@ GRAPHICS-WINDOW
 1
 1
 0
-20
+9
 0
-20
+9
 0
 0
 1
@@ -721,7 +774,7 @@ Wolf_depth_of_field
 Wolf_depth_of_field
 1
 (floor SizeOfMap - 1) / 2
--0.55
+4
 1
 1
 patches
@@ -788,6 +841,32 @@ diagonal-movement
 1
 1
 -1000
+
+SWITCH
+12
+188
+176
+221
+reactive-sheep
+reactive-sheep
+0
+1
+-1000
+
+SLIDER
+11
+224
+183
+257
+Sheep_depth_of_field
+Sheep_depth_of_field
+0
+((floor SizeOfMap - 1) / 2) / 2
+1
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
