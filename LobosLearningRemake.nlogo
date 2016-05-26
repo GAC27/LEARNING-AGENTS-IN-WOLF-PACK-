@@ -4,7 +4,7 @@
 extensions [array table]
 breed [sheep a-sheep]
 breed [wolves wolf]
-globals[ NUM-ACTIONS SizeOfMap epsilon episode-count time-steps total-time-steps ACTION-LIST]
+globals [NUM-ACTIONS SizeOfMap epsilon episode-count time-steps total-time-steps ACTION-LIST LAST-25-TIME-STEPS]
 
 turtles-own [ init_xcor init_ycor prev-xcor prev-ycor]
 ;distancexy-sheep = (Wolf_depth_of_field,Wolf_depth_of_field) quando não vê a ovelha
@@ -62,6 +62,8 @@ to set-globals
   ifelse(diagonal-movement)
   [set NUM-ACTIONS 9]
   [set NUM-ACTIONS 5]
+
+  set LAST-25-TIME-STEPS (list)
 end
 
 
@@ -219,6 +221,17 @@ to reset
   plot time-steps
 
   set episode-count (episode-count + 1)
+
+  set LAST-25-TIME-STEPS lput time-steps LAST-25-TIME-STEPS
+  set-current-plot-pen "average-time-steps"
+  ifelse episode-count >= 25 [
+    plot mean LAST-25-TIME-STEPS
+    set LAST-25-TIME-STEPS but-first LAST-25-TIME-STEPS
+  ]
+  [
+    plot mean LAST-25-TIME-STEPS
+  ]
+
   set time-steps 0
 
   ; linearly decrease explorations over time
@@ -776,12 +789,13 @@ true
 false
 "" "set-plot-y-range  min-pycor max-pycor"
 PENS
-"time-steps" 1.0 0 -16777216 true "" ""
+"time-steps" 1.0 0 -11221820 true "" ""
+"average-time-steps" 1.0 0 -16777216 true "" ""
 
 PLOT
 728
 189
-1854
+1330
 339
 Reward performance
 episode
