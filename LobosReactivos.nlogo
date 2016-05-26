@@ -1,13 +1,15 @@
 breed [sheep a-sheep]
 breed [wolves wolf]
-globals[ SizeOfMap wolves-in-position]
+globals[ SizeOfMap episode-count time-steps LAST-25-TIME-STEPS]
 
-turtles-own [prev-xcor prev-ycor]
+turtles-own [prev-xcor prev-ycor init_xcor init_ycor]
 
 
 to set-globals
   set SizeOfMap (max-pxcor + 1)
-  set wolves-in-position 0
+  set episode-count 0
+  set time-steps 0
+  set LAST-25-TIME-STEPS (list)
 end
 to setup
 
@@ -24,6 +26,8 @@ to setup
     set color white
     set size 1  ;; easier to see
     setxy (round random-xcor) (round random-ycor)
+    set init_xcor xcor
+    set init_ycor ycor
     set heading 0
   ]
 
@@ -33,45 +37,103 @@ to setup
   [
     set color black
     set size 1  ;; easier to see
-    setxy (round random-xcor) (round random-ycor)
+    set-random-position
+    set init_xcor xcor
+    set init_ycor ycor
     set heading 0
+  ]
+end
+
+;;;
+;;;  Sets the turtle in a random, empty position
+;;;
+to set-random-position
+  setxy random-pxcor random-pycor
+  while [any? other turtles-here] [
+    setxy random-pxcor random-pycor
   ]
 end
 
 
 ;;;
-;;;  Step up the simulation
+;;;  Starts a new learning episode by resetting the simulation.
 ;;;
-to go
+to reset
+  ask sheep[; reset positions
+    set xcor init_xcor
+    set ycor init_ycor
+    set prev-xcor xcor
+    set prev-ycor ycor
+  ]
+
+  ask wolves [
+    set xcor init_xcor
+    set ycor init_ycor
+    set prev-xcor xcor
+    set prev-ycor ycor
+  ]
+  ; plots and update variables
+  set-current-plot "Time performance"
+  set-current-plot-pen "time-steps"
+  ;plot time-steps
+
+  set LAST-25-TIME-STEPS lput time-steps LAST-25-TIME-STEPS
+  set-current-plot-pen "average-time-steps"
+  ifelse episode-count >= 25 [
+    plot mean LAST-25-TIME-STEPS
+    set LAST-25-TIME-STEPS but-first LAST-25-TIME-STEPS
+  ]
+  [
+    plot mean LAST-25-TIME-STEPS
+  ]
+
+  set episode-count (episode-count + 1)
+  set time-steps 0
+end
+
+to-report episode-finished?
+  let wolves-in-position 0
   ;Stoping condition test
   ask wolves [
     if around-sheep?[
       set wolves-in-position (wolves-in-position + 1)
     ]
   ]
-  if wolves-in-position = 4[
-    stop
-  ]
-  set wolves-in-position 0
+  report wolves-in-position = 4
+end
 
-  let collisions true
-  tick
-  ;; the wolves act
-  ask wolves [
+;;;
+;;;  Step up the simulation
+;;;
+to go
+  ifelse episode-finished?[
+    reset
+    if episode-count >= max-episodes [stop]
+  ]
+  [
+    ;tick
+    ;; the wolves act
+    ask wolves [
       set prev-xcor xcor
       set prev-ycor ycor
       wolf-loop
-  ]
-  ;; the sheep act
-  ask sheep [
-    set prev-xcor xcor
-     set prev-ycor ycor
-    set heading ((random 4) * 90)
-    if (random 100) > 25 [
-      fd 1
     ]
+    correct-collisions
+    ;; the sheep act
+    ask sheep [
+      sheep-loop
+    ]
+    correct-collisions
+    set time-steps (time-steps + 1)
   ]
-  ;;correct colisions
+end
+
+
+;;;
+;;;Corrects collision through backtracing operations
+;;;
+to correct-collisions
+  let collisions true
   while [collisions] [
     set collisions false
     ask turtles [
@@ -85,6 +147,56 @@ to go
   ]
 end
 
+
+
+to sheep-loop
+  ifelse( reactive-sheep )[
+    let threat (wolves-on (patches in-radius Sheep_depth_of_field))
+    set threat agentset-to-list threat
+
+    ifelse length threat = 0[
+      random-loop
+    ]
+    [
+      set prev-xcor xcor
+      set prev-ycor ycor
+      let degrees-of-threat []
+      foreach threat[
+        face ?
+        set degrees-of-threat lput heading degrees-of-threat
+      ]
+
+      let avg-degree-of-threat 0
+      foreach degrees-of-threat[
+        set avg-degree-of-threat (avg-degree-of-threat + ?)
+      ]
+      set avg-degree-of-threat ( avg-degree-of-threat / (length threat) )
+
+      set avg-degree-of-threat (avg-degree-of-threat + 180 )
+
+      set heading avg-degree-of-threat
+
+      set heading ((floor (heading / 90) ) * 90)
+      if((random 100) < Sheep-movement-probability)[
+
+        fd 1
+      ]
+    ]
+  ]
+  [
+    random-loop
+  ]
+
+end
+
+to random-loop
+  set prev-xcor xcor
+  set prev-ycor ycor
+  set heading ((random 4) * 90)
+  if (random 100) < Sheep-movement-probability [
+    fd 1
+  ]
+end
 
 ;;;
 ;;;  wolf's updating procedure, which defines the rules of its behaviors
@@ -135,6 +247,13 @@ to-report position-sheep
 
   report one-of sheep-on (patches in-radius Wolf_depth_of_field)
 end
+
+;;;
+;;; I blame NetLogo
+;;;
+to-report agentset-to-list [as]
+  report [self] of as
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 303
@@ -172,17 +291,17 @@ Wolf_depth_of_field
 Wolf_depth_of_field
 1
 (floor SizeOfMap - 1 ) / 2
-10
+9
 1
 1
 patches
 HORIZONTAL
 
 BUTTON
-25
-103
-89
-136
+4
+57
+68
+90
 Setup
 setup
 NIL
@@ -196,10 +315,10 @@ NIL
 1
 
 BUTTON
-100
-106
-163
-139
+79
+60
+142
+93
 go
 go
 T
@@ -213,10 +332,10 @@ NIL
 1
 
 BUTTON
-80
-266
-191
-299
+3
+102
+114
+135
 Single Step Go
 go
 NIL
@@ -228,6 +347,103 @@ NIL
 NIL
 NIL
 1
+
+SWITCH
+3
+142
+167
+175
+diagonal-movement
+diagonal-movement
+1
+1
+-1000
+
+SWITCH
+2
+181
+141
+214
+reactive-sheep
+reactive-sheep
+1
+1
+-1000
+
+SLIDER
+-3
+220
+169
+253
+Sheep_depth_of_field
+Sheep_depth_of_field
+0
+((floor SizeOfMap - 1 ) / 2 ) / 2
+2
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+0
+256
+172
+289
+max-episodes
+max-episodes
+0
+1000
+50
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+-3
+291
+222
+324
+Sheep-movement-probability
+Sheep-movement-probability
+0
+100
+50
+1
+1
+%
+HORIZONTAL
+
+PLOT
+751
+27
+951
+177
+Time performance
+episode
+avg-time-steps
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" "set-plot-y-range  min-pycor max-pycor"
+PENS
+"average-time-steps" 1.0 0 -16777216 true "" ""
+"time-steps" 1.0 0 -11221820 true "" ""
+
+MONITOR
+752
+219
+856
+264
+Episode Counter
+episode-count
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
