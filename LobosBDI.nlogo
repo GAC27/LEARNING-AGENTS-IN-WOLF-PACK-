@@ -925,7 +925,7 @@ Sheep_depth_of_field
 Sheep_depth_of_field
 0
 ((floor SizeOfMap - 1) / 2) / 2
-2
+1
 1
 1
 NIL
@@ -985,7 +985,7 @@ Sheep-movement-probability
 Sheep-movement-probability
 0
 100
-50
+25
 1
 1
 %

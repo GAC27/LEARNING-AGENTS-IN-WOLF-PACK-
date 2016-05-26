@@ -259,8 +259,8 @@ end
 GRAPHICS-WINDOW
 303
 13
-548
-198
+621
+352
 -1
 -1
 30.8
@@ -274,9 +274,9 @@ GRAPHICS-WINDOW
 1
 1
 0
-4
+9
 0
-4
+9
 0
 0
 1
@@ -292,7 +292,7 @@ Wolf_depth_of_field
 Wolf_depth_of_field
 1
 (floor SizeOfMap - 1 ) / 2
-2
+3
 1
 1
 patches
@@ -356,7 +356,7 @@ SWITCH
 175
 diagonal-movement
 diagonal-movement
-1
+0
 1
 -1000
 
@@ -367,7 +367,7 @@ SWITCH
 214
 reactive-sheep
 reactive-sheep
-1
+0
 1
 -1000
 
@@ -380,7 +380,7 @@ Sheep_depth_of_field
 Sheep_depth_of_field
 0
 ((floor SizeOfMap - 1 ) / 2 ) / 2
-2
+1
 1
 1
 NIL
