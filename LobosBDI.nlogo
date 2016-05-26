@@ -211,6 +211,8 @@ to sheep-loop
   ifelse( reactive-sheep )[
     let threat (wolves-on (patches in-radius Sheep_depth_of_field))
     set threat agentset-to-list threat
+    let sumcos 0
+    let sumsin 0
 
     ifelse length threat = 0[
       random-loop
@@ -223,18 +225,17 @@ to sheep-loop
         face ?
         set degrees-of-threat lput heading degrees-of-threat
       ]
-
-      let avg-degree-of-threat 0
       foreach degrees-of-threat[
-        set avg-degree-of-threat (avg-degree-of-threat + ?)
+        set sumcos (sumcos + cos ?)
+        set sumsin (sumsin + sin ?)
       ]
-      set avg-degree-of-threat ( avg-degree-of-threat / (length threat) )
 
-      set avg-degree-of-threat (avg-degree-of-threat + 180 )
 
-      set heading avg-degree-of-threat
+      let avg-degree-of-threat atan sumsin sumcos
 
-      set heading ((floor (heading / 90) ) * 90)
+      set heading (avg-degree-of-threat + 180)
+
+      set heading ((round (heading / 90) ) * 90)
       if((random 100) < Sheep-movement-probability)[
 
         fd 1
@@ -911,7 +912,7 @@ SWITCH
 221
 reactive-sheep
 reactive-sheep
-1
+0
 1
 -1000
 
@@ -984,7 +985,7 @@ Sheep-movement-probability
 Sheep-movement-probability
 0
 100
-25
+50
 1
 1
 %
