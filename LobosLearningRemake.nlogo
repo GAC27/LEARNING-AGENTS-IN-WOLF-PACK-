@@ -4,11 +4,11 @@
 extensions [array table]
 breed [sheep a-sheep]
 breed [wolves wolf]
-globals [NUM-ACTIONS SizeOfMap epsilon episode-count time-steps total-time-steps ACTION-LIST LAST-25-TIME-STEPS]
+globals[ NUM-ACTIONS SizeOfMap epsilon episode-count time-steps total-time-steps ACTION-LIST]
 
 turtles-own [ init_xcor init_ycor prev-xcor prev-ycor]
 ;distancexy-sheep = (Wolf_depth_of_field,Wolf_depth_of_field) quando não vê a ovelha
-wolves-own [Q-values1 Q-values2 Q-values3 reward total-reward action last-action state-of-turtles]
+wolves-own [Q-values1 Q-values2 Q-values3 reward total-reward action last-action previous-state-of-turtles state-of-turtles]
 
 ;;;  =================================================================
 ;;;      Interface reports
@@ -62,8 +62,6 @@ to set-globals
   ifelse(diagonal-movement)
   [set NUM-ACTIONS 9]
   [set NUM-ACTIONS 5]
-
-  set LAST-25-TIME-STEPS (list)
 end
 
 
@@ -130,6 +128,7 @@ to setup-turtles
 
   ask wolves [
    update-state
+   set previous-state-of-turtles state-of-turtles
   ]
 
 end
@@ -163,10 +162,10 @@ to go
   [
 
     ;Select action
-    ask wolves [ wolf-think-loop ]
+    ask wolf 1 [ wolf-think-loop ]
 
     ;Execute action
-    ask wolves [ wolf-execute-loop ]
+    ask wolf 1 [ wolf-execute-loop ]
     correct-collisions
 
     ask sheep [ sheep-loop ]
@@ -176,10 +175,10 @@ to go
     set time-steps (time-steps + 1)
 
     ;Get Reward
-    ask wolves [ wolf-reward-loop ]
+    ask wolf 1 [ wolf-reward-loop ]
 
     ;Update state
-    ask wolves [ wolf-update-state-loop ]
+    ask wolf 1 [ wolf-update-state-loop ]
 
     set total-time-steps (total-time-steps + 1)
   ]
@@ -213,6 +212,7 @@ to reset
 
   ask wolves [
    update-state
+   set previous-state-of-turtles state-of-turtles
   ]
 
   ; plots and update variables
@@ -221,22 +221,11 @@ to reset
   plot time-steps
 
   set episode-count (episode-count + 1)
-
-  set LAST-25-TIME-STEPS lput time-steps LAST-25-TIME-STEPS
-  set-current-plot-pen "average-time-steps"
-  ifelse episode-count >= 25 [
-    plot mean LAST-25-TIME-STEPS
-    set LAST-25-TIME-STEPS but-first LAST-25-TIME-STEPS
-  ]
-  [
-    plot mean LAST-25-TIME-STEPS
-  ]
-
   set time-steps 0
 
   ; linearly decrease explorations over time
   set epsilon max list 0 (1 - (episode-count / max-episodes))
-
+  ;set epsilon 0
 end
 
 
@@ -291,6 +280,7 @@ end
 
 
 to update-state
+  set previous-state-of-turtles state-of-turtles
   let list-turtles agentset-to-list (turtles with [myself != self])
   foreach list-turtles[
     table:put state-of-turtles ([who] of ? ) (get-distance-state ?)
@@ -304,7 +294,7 @@ to correct-collisions
   let collisions true
   while [collisions] [
     set collisions false
-    ask sheep [
+    ask wolves [
       if (count (turtles-on patch-here)) > 1[
         set collisions true
         ask (turtles-on patch-here)[
@@ -467,16 +457,21 @@ end
 
 
 to-report get-Q-values-summed
-  let sheep-state (table:get state-of-turtles [who] of (a-sheep 0))
-  let wolves-state []
+  let turtles-state []
   foreach (sort (table:keys state-of-turtles)) [
     let el (table:get state-of-turtles ?)
-    set wolves-state lput el wolves-state
+    set turtles-state lput el turtles-state
   ]
-  let action-values1 get-Q-values Q-values1 (first sheep-state) (last sheep-state) (first (item 0 wolves-state)) (last (item 0 wolves-state))
-  let action-values2 get-Q-values Q-values2 (first sheep-state) (last sheep-state) (first (item 1 wolves-state)) (last (item 1 wolves-state))
-  let action-values3 get-Q-values Q-values3 (first sheep-state) (last sheep-state) (first (item 2 wolves-state)) (last (item 2 wolves-state))
+  print  (item 0 turtles-state)
+  print  (item 1 turtles-state)
+  print  (item 2 turtles-state)
+  print  (item 3 turtles-state)
 
+  let action-values1 get-Q-values Q-values1 (first (item 0 turtles-state)) (last (item 0 turtles-state)) (first (item 1 turtles-state)) (last (item 1 turtles-state))
+  let action-values2 get-Q-values Q-values2 (first (item 0 turtles-state)) (last (item 0 turtles-state)) (first (item 2 turtles-state)) (last (item 2 turtles-state))
+  let action-values3 get-Q-values Q-values3 (first (item 0 turtles-state)) (last (item 0 turtles-state)) (first (item 3 turtles-state)) (last (item 3 turtles-state))
+
+  print action-values1
   let i 0
   while [i < NUM-ACTIONS]
   [
@@ -534,10 +529,17 @@ end
 ;;;
 to update-Q-learning
   let list-of-turtle-states (sort table:keys state-of-turtles)
+  let next-sheep-state (table:get state-of-turtles (first list-of-turtle-states))
+  let next-wolf1-state (table:get state-of-turtles (item 1 list-of-turtle-states))
+  let next-wolf2-state (table:get state-of-turtles (item 2 list-of-turtle-states))
+  let next-wolf3-state (table:get state-of-turtles (item 3 list-of-turtle-states))
+
+  let prev-list-of-turtle-states (sort table:keys previous-state-of-turtles)
   let sheep-state (table:get state-of-turtles (first list-of-turtle-states))
   let wolf1-state (table:get state-of-turtles (item 1 list-of-turtle-states))
   let wolf2-state (table:get state-of-turtles (item 2 list-of-turtle-states))
   let wolf3-state (table:get state-of-turtles (item 3 list-of-turtle-states))
+
 
 
   ; get previous Q-value
@@ -546,9 +548,9 @@ to update-Q-learning
   let previous-Q-value3 (get-Q-value Q-values3 (first sheep-state)  (last sheep-state) (first wolf3-state) (last wolf3-state)  )
 
   ; gets r + (lambda * max_a' Q(s',a')) - Q(s,a)
-  let prediction-error1 (reward + (discount-factor * get-max-Q-value Q-values1 (first sheep-state)  (last sheep-state) (first wolf1-state) (last wolf1-state) ) - previous-Q-value1)
-  let prediction-error2 (reward + (discount-factor * get-max-Q-value Q-values2 (first sheep-state)  (last sheep-state) (first wolf2-state) (last wolf2-state) ) - previous-Q-value2)
-  let prediction-error3 (reward + (discount-factor * get-max-Q-value Q-values3 (first sheep-state)  (last sheep-state) (first wolf3-state) (last wolf3-state) ) - previous-Q-value3)
+  let prediction-error1 (reward + (discount-factor * get-max-Q-value Q-values1 (first next-sheep-state)  (last next-sheep-state) (first next-wolf1-state) (last next-wolf1-state) ) - previous-Q-value1)
+  let prediction-error2 (reward + (discount-factor * get-max-Q-value Q-values2 (first next-sheep-state)  (last next-sheep-state) (first next-wolf2-state) (last next-wolf2-state) ) - previous-Q-value2)
+  let prediction-error3 (reward + (discount-factor * get-max-Q-value Q-values3 (first next-sheep-state)  (last next-sheep-state) (first next-wolf3-state) (last next-wolf3-state) ) - previous-Q-value3)
 
   ; gets Q(s,a) + (alpha * (r + (lambda * max_a' Q(s',a') - Q(s,a)))
   let new-Q-value1 (previous-Q-value1 + (learning-rate * prediction-error1))
@@ -689,7 +691,7 @@ max-episodes
 max-episodes
 0
 10000
-1000
+10000
 1
 1
 NIL
@@ -766,8 +768,8 @@ SLIDER
 reward-value
 reward-value
 0
-10
-1
+1000
+1000
 1
 1
 NIL
@@ -789,13 +791,12 @@ true
 false
 "" "set-plot-y-range  min-pycor max-pycor"
 PENS
-"time-steps" 1.0 0 -11221820 true "" ""
-"average-time-steps" 1.0 0 -16777216 true "" ""
+"time-steps" 1.0 0 -16777216 true "" ""
 
 PLOT
 728
 189
-1330
+1854
 339
 Reward performance
 episode
@@ -1193,7 +1194,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3.1
+NetLogo 5.3
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
