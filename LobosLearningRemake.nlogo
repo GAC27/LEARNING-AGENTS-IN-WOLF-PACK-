@@ -4,7 +4,7 @@
 extensions [array table]
 breed [sheep a-sheep]
 breed [wolves wolf]
-globals[ NUM-ACTIONS SizeOfMap epsilon episode-count time-steps total-time-steps ACTION-LIST LAST-25-TIME-STEPS]
+globals[ NUM-ACTIONS SizeOfMap epsilon temperature episode-count time-steps total-time-steps ACTION-LIST LAST-25-TIME-STEPS]
 
 turtles-own [ init_xcor init_ycor prev-xcor prev-ycor]
 ;distancexy-sheep = (Wolf_depth_of_field,Wolf_depth_of_field) quando não vê a ovelha
@@ -46,6 +46,7 @@ to set-globals
   set time-steps 0
   set episode-count 0
   set epsilon 1
+   set temperature 100
   set LAST-25-TIME-STEPS (list)
   ; defines list of actions as (x y) move increments
   set ACTION-LIST (list
@@ -236,6 +237,7 @@ to reset
 
   ; linearly decrease explorations over time
   set epsilon max list 0 (1 - (episode-count / max-episodes))
+  set temperature max list 0.8 (epsilon * 10)
   ;set epsilon 0
 end
 
@@ -257,7 +259,11 @@ end
 ;;;
 to wolf-think-loop
   ; chooses action
+  set last-action action
   set action select-action
+  if (time-steps = 0)[
+    set last-action action
+    ]
 end
 
 ;;;
@@ -383,8 +389,8 @@ end
 to-report get-real-distance [ x1 x2]
   report min list (abs (x1 - x2 )) (SizeOfMap - (abs (x1 - x2 )))
 end
-to-report get-action-index
-  report position action ACTION-LIST
+to-report get-action-index [action-wanted]
+  report position action-wanted ACTION-LIST
 end
 
 ;;;
@@ -549,9 +555,9 @@ to update-Q-learning
 
 
   ; get previous Q-value
-  let previous-Q-value1 (get-Q-value Q-values1 (first sheep-state)  (last sheep-state) (first wolf1-state) (last wolf1-state)  )
-  let previous-Q-value2 (get-Q-value Q-values2 (first sheep-state)  (last sheep-state) (first wolf2-state) (last wolf2-state)  )
-  let previous-Q-value3 (get-Q-value Q-values3 (first sheep-state)  (last sheep-state) (first wolf3-state) (last wolf3-state)  )
+  let previous-Q-value1 (get-Q-value Q-values1 (first sheep-state)  (last sheep-state) (first wolf1-state) (last wolf1-state) last-action )
+  let previous-Q-value2 (get-Q-value Q-values2 (first sheep-state)  (last sheep-state) (first wolf2-state) (last wolf2-state) last-action )
+  let previous-Q-value3 (get-Q-value Q-values3 (first sheep-state)  (last sheep-state) (first wolf3-state) (last wolf3-state) last-action )
 
   ; gets r + (lambda * max_a' Q(s',a')) - Q(s,a)
   let prediction-error1 (reward + (discount-factor * (get-max-Q-value Q-values1 (first next-sheep-state)  (last next-sheep-state) (first next-wolf1-state) (last next-wolf1-state) ) ) - previous-Q-value1)
@@ -570,13 +576,59 @@ to update-Q-learning
 end
 
 
+;;;
+;;;  Updates the Q-value for a given action according to SARSA algorithm update rule.
+;;;  Tips:
+;;;    - use "get-Q-value" and "set-Q-value" to update the action-value function
+;;;    - properties "previous-xcor" and "previous-ycor" give access to the previous state
+;;;
+to update-SARSA
+
+  let list-of-turtle-states (sort table:keys state-of-turtles)
+  let next-sheep-state (table:get state-of-turtles (first list-of-turtle-states))
+  let next-wolf1-state (table:get state-of-turtles (item 1 list-of-turtle-states))
+  let next-wolf2-state (table:get state-of-turtles (item 2 list-of-turtle-states))
+  let next-wolf3-state (table:get state-of-turtles (item 3 list-of-turtle-states))
+
+  let prev-list-of-turtle-states (sort table:keys previous-state-of-turtles)
+  let sheep-state (table:get previous-state-of-turtles (first prev-list-of-turtle-states))
+  let wolf1-state (table:get previous-state-of-turtles (item 1 prev-list-of-turtle-states))
+  let wolf2-state (table:get previous-state-of-turtles (item 2 prev-list-of-turtle-states))
+  let wolf3-state (table:get previous-state-of-turtles (item 3 prev-list-of-turtle-states))
+
+
+
+  ; get previous Q-value
+  let previous-Q-value1 (get-Q-value Q-values1 (first sheep-state)  (last sheep-state) (first wolf1-state) (last wolf1-state) last-action )
+  let previous-Q-value2 (get-Q-value Q-values2 (first sheep-state)  (last sheep-state) (first wolf2-state) (last wolf2-state) last-action )
+  let previous-Q-value3 (get-Q-value Q-values3 (first sheep-state)  (last sheep-state) (first wolf3-state) (last wolf3-state) last-action )
+
+  ; gets r + (lambda * max_a' Q(s',a')) - Q(s,a)
+  let prediction-error1 (reward + (discount-factor * (get-Q-value Q-values1 (first next-sheep-state)  (last next-sheep-state) (first next-wolf1-state) (last next-wolf1-state) action ) ) - previous-Q-value1)
+  let prediction-error2 (reward + (discount-factor * (get-Q-value Q-values2 (first next-sheep-state)  (last next-sheep-state) (first next-wolf2-state) (last next-wolf2-state) action) ) - previous-Q-value2)
+  let prediction-error3 (reward + (discount-factor * (get-Q-value Q-values3 (first next-sheep-state)  (last next-sheep-state) (first next-wolf3-state) (last next-wolf3-state) action) ) - previous-Q-value3)
+
+  ; gets Q(s,a) + (alpha * (r + (lambda * max_a' Q(s',a') - Q(s,a)))
+  let new-Q-value1 (previous-Q-value1 + (learning-rate * prediction-error1))
+  let new-Q-value2 (previous-Q-value2 + (learning-rate * prediction-error2))
+  let new-Q-value3 (previous-Q-value3 + (learning-rate * prediction-error3))
+
+  ; sets new Q-value
+  set-Q-value Q-values1 (first sheep-state)  (last sheep-state) (first wolf1-state) (last wolf1-state) new-Q-value1
+  set-Q-value Q-values2 (first sheep-state)  (last sheep-state) (first wolf2-state) (last wolf2-state) new-Q-value2
+  set-Q-value Q-values3 (first sheep-state)  (last sheep-state) (first wolf3-state) (last wolf3-state) new-Q-value3
+
+end
+
+
+
 
 ;;;
 ;;;  Gets the Q-value for a specific state-action pair
 ;;;
-to-report get-Q-value [q-values x-sheep y-sheep x-wolf y-wolf]
+to-report get-Q-value [q-values x-sheep y-sheep x-wolf y-wolf action-wanted]
   let action-values get-Q-values q-values x-sheep y-sheep x-wolf y-wolf
-  report array:item action-values (get-action-index)
+  report array:item action-values (get-action-index action-wanted)
 end
 
 
@@ -592,7 +644,7 @@ end
 ;;;  Sets the Q-value for a specific state-action pair
 ;;;
 to set-Q-value [q-values x-sheep y-sheep x-wolf y-wolf value]
-  array:set (get-Q-values q-values x-sheep y-sheep x-wolf y-wolf) (get-action-index) value
+  array:set (get-Q-values q-values x-sheep y-sheep x-wolf y-wolf) (get-action-index last-action) value
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -697,7 +749,7 @@ max-episodes
 max-episodes
 0
 10000
-1000
+10000
 1
 1
 NIL
@@ -1201,7 +1253,7 @@ Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 
 @#$#@#$#@
-NetLogo 5.3.1
+NetLogo 5.3
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
