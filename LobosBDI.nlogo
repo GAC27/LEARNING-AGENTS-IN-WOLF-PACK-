@@ -45,6 +45,7 @@ to setup
   clear-all
   reset-ticks
   set-globals
+  reset-timer
    ask patches with [pxcor >= (- SizeOfMap) and pxcor < (SizeOfMap) and pycor >= (- SizeOfMap) and pycor < (SizeOfMap )]
     [ set pcolor scale-color green ((random 500) + 5000) 0 9000 ]
 
@@ -800,10 +801,10 @@ to-report agentset-to-list [as]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-230
-23
-497
-311
+244
+21
+511
+309
 -1
 -1
 25.7
@@ -835,7 +836,7 @@ Wolf_depth_of_field
 Wolf_depth_of_field
 1
 (floor SizeOfMap - 1) / 2
-4
+3
 1
 1
 patches
@@ -910,7 +911,7 @@ SWITCH
 221
 reactive-sheep
 reactive-sheep
-0
+1
 1
 -1000
 
@@ -930,10 +931,10 @@ NIL
 HORIZONTAL
 
 PLOT
-512
-14
-712
-164
+723
+12
+1328
+162
 Time performance
 episode
 avg-time-steps
@@ -956,18 +957,18 @@ SLIDER
 max-episodes
 max-episodes
 1
+10000
 1000
-504
 1
 1
 NIL
 HORIZONTAL
 
 MONITOR
-517
-173
-621
-218
+728
+171
+832
+216
 Episode Counter
 episode-count
 17
@@ -983,11 +984,22 @@ Sheep-movement-probability
 Sheep-movement-probability
 0
 100
-50
+25
 1
 1
 %
 HORIZONTAL
+
+MONITOR
+729
+222
+786
+267
+NIL
+timer
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?

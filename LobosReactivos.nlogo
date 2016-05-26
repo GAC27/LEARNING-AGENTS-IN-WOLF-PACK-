@@ -16,6 +16,7 @@ to setup
   clear-all
   reset-ticks
   set-globals
+  reset-timer
    ask patches with [pxcor >= (- SizeOfMap) and pxcor < (SizeOfMap) and pycor >= (- SizeOfMap) and pycor < (SizeOfMap )]
     [ set pcolor scale-color green ((random 500) + 5000) 0 9000 ]
 
@@ -258,8 +259,8 @@ end
 GRAPHICS-WINDOW
 303
 13
-733
-464
+548
+244
 -1
 -1
 20.0
@@ -273,9 +274,9 @@ GRAPHICS-WINDOW
 1
 1
 0
-20
+9
 0
-20
+9
 0
 0
 1
@@ -291,7 +292,7 @@ Wolf_depth_of_field
 Wolf_depth_of_field
 1
 (floor SizeOfMap - 1 ) / 2
-9
+3
 1
 1
 patches
@@ -409,7 +410,7 @@ Sheep-movement-probability
 Sheep-movement-probability
 0
 100
-50
+25
 1
 1
 %
@@ -418,8 +419,8 @@ HORIZONTAL
 PLOT
 751
 27
-951
-177
+1313
+217
 Time performance
 episode
 avg-time-steps
@@ -441,6 +442,17 @@ MONITOR
 264
 Episode Counter
 episode-count
+17
+1
+11
+
+MONITOR
+755
+266
+812
+311
+NIL
+timer
 17
 1
 11
