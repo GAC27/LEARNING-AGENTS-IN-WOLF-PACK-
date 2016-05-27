@@ -1,7 +1,7 @@
 __includes ["q-learning.nls" "utils.nls" "matrices.nls"]
 extensions [table]
 
-globals [ACTION-LIST NUM-ACTIONS EPSILON MAP-SIZE TIME-STEPS EPISODE]
+globals [ACTION-LIST NUM-ACTIONS EPSILON MAP-SIZE TIME-STEPS EPISODE LAST-25-TIME-STEPS]
 
 breed [sheep the-sheep]
 breed [wolves wolf]
@@ -97,22 +97,36 @@ end
 
 
 
-
-;;; @scope none
-to next-episode
-  set-current-plot "Performance"
-  set-current-plot-pen "time-steps"
-  plot TIME-STEPS
-
-  set EPSILON max (list 0 (1 - (EPISODE / MAX-EPISODE)))
+to init-episode
+  set TIME-STEPS 0
 
   ask turtles [
     set-random-position
     set heading 0
   ]
+end
 
-  set TIME-STEPS 0
+;;; @scope none
+to next-episode
+  set EPSILON max (list 0 (1 - (EPISODE / MAX-EPISODE)))
+
+  set-current-plot "Performance"
+  set-current-plot-pen "time-steps"
+  plot TIME-STEPS
+
   set EPISODE (EPISODE + 1)
+
+  set LAST-25-TIME-STEPS lput TIME-STEPS LAST-25-TIME-STEPS
+  set-current-plot-pen "average-time-steps"
+  ifelse EPISODE >= 25 [
+    plot mean LAST-25-TIME-STEPS
+    set LAST-25-TIME-STEPS but-first LAST-25-TIME-STEPS
+  ]
+  [
+    plot mean LAST-25-TIME-STEPS
+  ]
+
+   init-episode
 end
 
 
@@ -221,7 +235,8 @@ to setup
   spawn-sheep
   spawn-wolves
 
-  next-episode
+  set LAST-25-TIME-STEPS (list)
+  init-episode
 end
 
 
@@ -362,7 +377,7 @@ SHEEP-MOVEMENT-PROBABILITY
 SHEEP-MOVEMENT-PROBABILITY
 0
 100
-0
+33
 1
 1
 %
@@ -508,6 +523,7 @@ false
 "" ""
 PENS
 "time-steps" 1.0 0 -16777216 true "" ""
+"average-time-steps" 1.0 0 -11221820 true "" ""
 
 @#$#@#$#@
 ## WHAT IS IT?
