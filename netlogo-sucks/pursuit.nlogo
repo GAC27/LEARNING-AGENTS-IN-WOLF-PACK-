@@ -176,7 +176,7 @@ to next-episode
 
   set-current-plot "Performance"
   set-current-plot-pen "time-steps"
-  plot TIME-STEPS
+  ;plot TIME-STEPS
 
   set EPISODE (EPISODE + 1)
 
@@ -352,10 +352,10 @@ to set-random-position
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-355
-10
-665
-341
+334
+11
+644
+342
 -1
 -1
 30.0
@@ -437,7 +437,8 @@ SLIDER
 WOLF_VISUAL_DEPTH
 WOLF_VISUAL_DEPTH
 0
-10
+
+(floor world-height - 1) / 2
 3
 1
 1
@@ -460,10 +461,10 @@ SHEEP-MOVEMENT-PROBABILITY
 HORIZONTAL
 
 MONITOR
-757
-193
-847
-238
+978
+190
+1068
+235
 NIL
 TIME-STEPS
 17
@@ -471,10 +472,10 @@ TIME-STEPS
 11
 
 MONITOR
-761
-330
-830
-375
+982
+327
+1051
+372
 NIL
 EPSILON
 17
@@ -482,10 +483,10 @@ EPSILON
 11
 
 MONITOR
-757
-250
-827
-295
+978
+247
+1048
+292
 NIL
 EPISODE
 17
@@ -583,9 +584,9 @@ NIL
 HORIZONTAL
 
 PLOT
-713
+978
 10
-1323
+1588
 180
 Performance
 NIL
