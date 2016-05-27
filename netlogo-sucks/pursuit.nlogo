@@ -41,9 +41,9 @@ to wolf-learning-loop
   let reward (get-reward)
   let current-state (compute-state)
 
-  set Q-values1 (update-Q-value Q-values1 (get-partial-state w_previous-state 1) (get-partial-state w_previous-state 1) w_action reward)
-  set Q-values2 (update-Q-value Q-values2 (get-partial-state w_previous-state 2) (get-partial-state w_previous-state 2) w_action reward)
-  set Q-values3 (update-Q-value Q-values3 (get-partial-state w_previous-state 3) (get-partial-state w_previous-state 3) w_action reward)
+  set Q-values1 (update-Q-value Q-values1 (get-partial-state w_previous-state 1) (get-partial-state current-state 1) w_action reward)
+  set Q-values2 (update-Q-value Q-values2 (get-partial-state w_previous-state 2) (get-partial-state current-state 2) w_action reward)
+  set Q-values3 (update-Q-value Q-values3 (get-partial-state w_previous-state 3) (get-partial-state current-state 3) w_action reward)
 end
 
 ;;; @scope wolf
