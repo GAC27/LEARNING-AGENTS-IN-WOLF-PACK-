@@ -1,6 +1,8 @@
 to-report initial-Q-values
   let vd ((2 * WOLF_VISUAL_DEPTH) + 1)
-  report make-matrix vd (make-matrix vd (n-values NUM-ACTIONS [ 0 ]))
+  ifelse action-selection = "ε-greedy"
+    [ report make-matrix vd (make-matrix vd (n-values NUM-ACTIONS [ 0 ])) ]
+    [ report make-matrix vd (make-matrix vd (n-values NUM-ACTIONS [ (random-float 0.09) + 0.01 ])) ]
 end
 
 

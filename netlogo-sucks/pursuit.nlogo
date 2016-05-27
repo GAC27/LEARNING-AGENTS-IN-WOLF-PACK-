@@ -46,16 +46,35 @@ to wolf-learning-loop
   set Q-values3 (update-Q-value Q-values3 (get-partial-state w_previous-state 3) (get-partial-state current-state 3) w_action reward)
 end
 
+
+;;; ==========================================
+;;;            ACTION SELECTION
+;;; ====================================
+
 ;;; @scope wolf
 to-report select-action
+  ifelse action-selection = "ε-greedy"
+    [ report select-action-e-greedy ]
+    [ report select-action-greatest-mass ]
+end
+
+to-report select-action-e-greedy
   ifelse EPSILON > (random-float 1) [
     report item (random NUM-ACTIONS) ACTION-LIST
   ]
   [
-    let action-values get-Q-vectors-summed
-    report item (position (max action-values) action-values) ACTION-LIST
+    report select-action-greatest-mass
   ]
 end
+
+to-report select-action-greatest-mass
+  let action-values get-Q-vectors-summed
+  report item (position (max action-values) action-values) ACTION-LIST
+end
+;;; ====================================
+;;;            ACTION SELECTION
+;;; ==========================================
+
 
 ;;; @scope turtle
 to execute-action [action]
@@ -524,6 +543,16 @@ false
 PENS
 "time-steps" 1.0 0 -16777216 true "" ""
 "average-time-steps" 1.0 0 -11221820 true "" ""
+
+CHOOSER
+22
+423
+176
+468
+Action-selection
+Action-selection
+"ε-greedy" "greatest-mass"
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
