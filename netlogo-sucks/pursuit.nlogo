@@ -97,11 +97,56 @@ end
 
 
 to sheep-loop
-  if SHEEP-MOVEMENT-PROBABILITY > (random 100) [
-    let action (item (random NUM-ACTIONS) ACTION-LIST)
-    execute-action action
+  ifelse( REACTIVE-SHEEP )[
+    let threat (wolves-on (patches in-radius Sheep_depth_of_field))
+    set threat agentset-to-list threat
+    let sumcos 0
+    let sumsin 0
+
+    ifelse length threat = 0[
+      random-loop
+    ]
+    [
+      let degrees-of-threat []
+      foreach threat[
+        face ?
+        set degrees-of-threat lput heading degrees-of-threat
+      ]
+      foreach degrees-of-threat[
+        set sumcos (sumcos + cos ?)
+        set sumsin (sumsin + sin ?)
+      ]
+
+
+      let avg-degree-of-threat atan sumsin sumcos
+
+      set heading (avg-degree-of-threat + 180)
+
+      set heading ((round (heading / 90) ) * 90)
+      if((random 100) < SHEEP-MOVEMENT-PROBABILITY)[
+
+        fd 1
+      ]
+    ]
+  ]
+  [
+    random-loop
+  ]
+
+end
+
+to-report agentset-to-list [as]
+  report [self] of as
+end
+
+to random-loop
+  set heading ((random 4) * 90)
+  if (random 100) < SHEEP-MOVEMENT-PROBABILITY [
+    fd 1
   ]
 end
+
+
 
 
 
@@ -238,14 +283,26 @@ to setup
   set MAP-SIZE (max-pxcor + 1)
 
   set ACTION-LIST (list
-    list  0  0  ; no-move
-    list  0  1  ; N north
-    list  0 -1  ; S south
-    list  1  0  ; E east
-    list -1  0  ; W west
+    list 0 0    ; no-move
+    list 0 1    ; N north
+    list 0 -1   ; S south
+    list 1 0    ; E east
+    list -1 0   ; W west
+    list 1 1    ; NE northeast
+    list 1 -1   ; SE southeast
+    list -1 1   ; NW northwest
+    list -1 -1  ; SW southwest
     )
 
-  set NUM-ACTIONS 5
+  ifelse (DIAGONAL)
+  [
+    set NUM-ACTIONS 9
+  ]
+  [
+    set NUM-ACTIONS 5
+  ]
+
+
 
   ask patches [
     set pcolor scale-color green ((random 500) + 5000) 0 9000
@@ -297,8 +354,8 @@ end
 GRAPHICS-WINDOW
 355
 10
-600
-221
+665
+341
 -1
 -1
 30.0
@@ -312,9 +369,9 @@ GRAPHICS-WINDOW
 1
 1
 0
-5
+9
 0
-5
+9
 0
 0
 1
@@ -381,7 +438,7 @@ WOLF_VISUAL_DEPTH
 WOLF_VISUAL_DEPTH
 0
 10
-2
+3
 1
 1
 NIL
@@ -396,7 +453,7 @@ SHEEP-MOVEMENT-PROBABILITY
 SHEEP-MOVEMENT-PROBABILITY
 0
 100
-33
+25
 1
 1
 %
@@ -459,7 +516,7 @@ MAX-EPISODE
 MAX-EPISODE
 0
 100000
-5000
+10000
 1
 1
 NIL
@@ -553,6 +610,43 @@ Action-selection
 Action-selection
 "ε-greedy" "greatest-mass"
 1
+
+SWITCH
+30
+535
+157
+568
+DIAGONAL
+DIAGONAL
+1
+1
+-1000
+
+SWITCH
+23
+483
+198
+516
+REACTIVE-SHEEP
+REACTIVE-SHEEP
+0
+1
+-1000
+
+SLIDER
+36
+585
+246
+618
+Sheep_depth_of_field
+Sheep_depth_of_field
+0
+100
+1
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
