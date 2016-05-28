@@ -175,7 +175,7 @@ to next-episode
   set EPSILON max (list 0 (1 - (EPISODE / MAX-EPISODE)))
 
   set-current-plot "Performance"
-  set-current-plot-pen "time-steps"
+  ;set-current-plot-pen "time-steps"
   ;plot TIME-STEPS
 
   set EPISODE (EPISODE + 1)
@@ -352,10 +352,10 @@ to set-random-position
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-334
-11
-644
-342
+355
+10
+665
+341
 -1
 -1
 30.0
@@ -437,7 +437,6 @@ SLIDER
 WOLF_VISUAL_DEPTH
 WOLF_VISUAL_DEPTH
 0
-
 (floor world-height - 1) / 2
 3
 1
@@ -461,10 +460,10 @@ SHEEP-MOVEMENT-PROBABILITY
 HORIZONTAL
 
 MONITOR
-978
-190
-1068
-235
+757
+193
+847
+238
 NIL
 TIME-STEPS
 17
@@ -472,10 +471,10 @@ TIME-STEPS
 11
 
 MONITOR
-982
-327
-1051
-372
+761
+330
+830
+375
 NIL
 EPSILON
 17
@@ -483,10 +482,10 @@ EPSILON
 11
 
 MONITOR
-978
-247
-1048
-292
+757
+250
+827
+295
 NIL
 EPISODE
 17
@@ -524,10 +523,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-18
-249
-190
-282
+14
+232
+186
+265
 REWARD-VALUE
 REWARD-VALUE
 -1
@@ -539,10 +538,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-18
-290
-190
-323
+14
+270
+186
+303
 REWARD-ABORT
 REWARD-ABORT
 -1
@@ -554,10 +553,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-20
-341
-192
-374
+14
+310
+186
+343
 LEARNING-RATE
 LEARNING-RATE
 0
@@ -569,10 +568,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-20
-377
-207
-410
+14
+346
+201
+379
 DISCOUNT-FACTOR
 DISCOUNT-FACTOR
 0
@@ -584,9 +583,9 @@ NIL
 HORIZONTAL
 
 PLOT
-978
+713
 10
-1588
+1323
 180
 Performance
 NIL
@@ -603,20 +602,20 @@ PENS
 "average-time-steps" 1.0 0 -11221820 true "" ""
 
 CHOOSER
-22
-423
-176
-468
+14
+386
+168
+431
 Action-selection
 Action-selection
 "ε-greedy" "greatest-mass"
 1
 
 SWITCH
-30
-535
-157
-568
+16
+437
+143
+470
 DIAGONAL
 DIAGONAL
 1
@@ -624,10 +623,10 @@ DIAGONAL
 -1000
 
 SWITCH
-23
-483
-198
-516
+17
+476
+192
+509
 REACTIVE-SHEEP
 REACTIVE-SHEEP
 0
@@ -635,10 +634,10 @@ REACTIVE-SHEEP
 -1000
 
 SLIDER
-36
-585
-246
-618
+17
+514
+227
+547
 Sheep_depth_of_field
 Sheep_depth_of_field
 0
