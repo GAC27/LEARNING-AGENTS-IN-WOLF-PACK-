@@ -98,7 +98,7 @@ end
 
 to sheep-loop
   ifelse( REACTIVE-SHEEP )[
-    let threat (wolves-on (patches in-radius Sheep_depth_of_field))
+    let threat (wolves-on (patches in-radius SHEEP-VISUAL-FIELD-DEPTH))
     set threat agentset-to-list threat
     let sumcos 0
     let sumsin 0
@@ -174,7 +174,7 @@ end
 to next-episode
   set EPSILON max (list 0 (1 - (EPISODE / MAX-EPISODE)))
 
-  set-current-plot "Performance"
+  set-current-plot "Time Performance"
   ;set-current-plot-pen "time-steps"
   ;plot TIME-STEPS
 
@@ -215,7 +215,7 @@ to-report compute-state
     ]
   ]
 
-  report (map [(list ((first ?) + WOLF_VISUAL_DEPTH) ((last ?) + WOLF_VISUAL_DEPTH))] rel-cors)
+  report (map [(list ((first ?) + WOLF-VISUAL-FIELD-DEPTH) ((last ?) + WOLF-VISUAL-FIELD-DEPTH))] rel-cors)
 end
 
 to-report get-partial-state [state wolf-rel-idx]
@@ -243,7 +243,7 @@ to-report rel-cors-of-visible-agents
   let rel-cors (list)
 
   foreach other-agents [
-    ifelse distance ? <= WOLF_VISUAL_DEPTH [
+    ifelse distance ? <= WOLF-VISUAL-FIELD-DEPTH [
       set rel-cors lput (rel-cors-toroidal (cors) (cors-of ?)) rel-cors
     ]
     [
@@ -260,7 +260,7 @@ to-report visible-agents
 end
 
 to-report visible-patches
-  report patches in-radius WOLF_VISUAL_DEPTH
+  report patches in-radius WOLF-VISUAL-FIELD-DEPTH
 end
 
 ;;; ====================================
@@ -294,7 +294,7 @@ to setup
     list -1 -1  ; SW southwest
     )
 
-  ifelse (DIAGONAL)
+  ifelse (WOLF-DIAGONAL-MOVEMENT)
   [
     set NUM-ACTIONS 9
   ]
@@ -434,8 +434,8 @@ SLIDER
 57
 282
 90
-WOLF_VISUAL_DEPTH
-WOLF_VISUAL_DEPTH
+Wolf-Visual-Field-Depth
+Wolf-Visual-Field-Depth
 0
 (floor world-height - 1) / 2
 3
@@ -449,8 +449,8 @@ SLIDER
 99
 282
 132
-SHEEP-MOVEMENT-PROBABILITY
-SHEEP-MOVEMENT-PROBABILITY
+Sheep-Movement-Probability
+Sheep-Movement-Probability
 0
 100
 25
@@ -460,34 +460,23 @@ SHEEP-MOVEMENT-PROBABILITY
 HORIZONTAL
 
 MONITOR
-757
-193
-847
-238
+713
+191
+803
+236
 NIL
-TIME-STEPS
+Time-Steps
 17
 1
 11
 
 MONITOR
-761
-330
-830
-375
+713
+248
+783
+293
 NIL
-EPSILON
-17
-1
-11
-
-MONITOR
-757
-250
-827
-295
-NIL
-EPISODE
+Episode
 17
 1
 11
@@ -497,8 +486,8 @@ SLIDER
 143
 281
 176
-MAX-TIME-STEPS-PER-EPISODE
-MAX-TIME-STEPS-PER-EPISODE
+Max-Time-Steps-Per-Episode
+Max-Time-Steps-Per-Episode
 0
 5000
 1500
@@ -512,8 +501,8 @@ SLIDER
 187
 283
 220
-MAX-EPISODE
-MAX-EPISODE
+Max-Episode
+Max-Episode
 0
 100000
 10000
@@ -525,10 +514,10 @@ HORIZONTAL
 SLIDER
 14
 232
-186
+201
 265
-REWARD-VALUE
-REWARD-VALUE
+Reward-Value
+Reward-Value
 -1
 1
 1
@@ -540,10 +529,10 @@ HORIZONTAL
 SLIDER
 14
 270
-186
+201
 303
-REWARD-ABORT
-REWARD-ABORT
+Reward-Abort
+Reward-Abort
 -1
 1
 -0.1
@@ -555,10 +544,10 @@ HORIZONTAL
 SLIDER
 14
 310
-186
+201
 343
-LEARNING-RATE
-LEARNING-RATE
+Learning-Rate
+Learning-Rate
 0
 1
 0.1
@@ -572,8 +561,8 @@ SLIDER
 346
 201
 379
-DISCOUNT-FACTOR
-DISCOUNT-FACTOR
+Discount-Factor
+Discount-Factor
 0
 1
 0.9
@@ -587,9 +576,9 @@ PLOT
 10
 1323
 180
-Performance
-NIL
-NIL
+Time Performance
+episode
+avg-time-steps
 0.0
 10.0
 0.0
@@ -614,10 +603,10 @@ Action-selection
 SWITCH
 16
 437
-143
+211
 470
-DIAGONAL
-DIAGONAL
+Wolf-Diagonal-Movement
+Wolf-Diagonal-Movement
 1
 1
 -1000
@@ -625,10 +614,10 @@ DIAGONAL
 SWITCH
 17
 476
-192
+228
 509
-REACTIVE-SHEEP
-REACTIVE-SHEEP
+Reactive-Sheep
+Reactive-Sheep
 0
 1
 -1000
@@ -638,8 +627,8 @@ SLIDER
 514
 227
 547
-Sheep_depth_of_field
-Sheep_depth_of_field
+Sheep-Visual-Field-Depth
+Sheep-Visual-Field-Depth
 0
 100
 1
