@@ -1,0 +1,67 @@
+to-report initial-Q-values
+  let vd ((2 * WOLF-VISUAL-FIELD-DEPTH) + 1)
+  ifelse action-selection = "ε-greedy"
+    [ report make-matrix vd (make-matrix vd (n-values NUM-ACTIONS [ 0 ])) ]
+    [ report make-matrix vd (make-matrix vd (n-values NUM-ACTIONS [ (random-float 0.09) + 0.01 ])) ]
+end
+
+
+to-report update-Q-value [q-values prev-partial-state curr-partial-state action reward]
+  let Qsa (get-Q-value q-values prev-partial-state action)
+
+  let newQsa (Qsa + (LEARNING-RATE * (reward + (DISCOUNT-FACTOR * (max-Q-value q-values curr-partial-state)) - Qsa)))
+
+  report (replace-Q-value q-values prev-partial-state action newQsa)
+end
+
+
+to-report max-Q-value [q-values p-state]
+  report (max (get-Q-vector q-values p-state))
+end
+
+;;; @scope wolf
+to-report get-Q-vectors-summed
+  let current-state (compute-state)
+  let q-vector1 (get-Q-vector Q-values1 (get-partial-state current-state 1))
+  let q-vector2 (get-Q-vector Q-values2 (get-partial-state current-state 2))
+  let q-vector3 (get-Q-vector Q-values3 (get-partial-state current-state 3))
+
+  report (map + q-vector1 q-vector2 q-vector3)
+end
+
+; ====================================================================================
+;                       GETTERS
+; ========================================================================
+
+to-report get-Q-value [q-values p-state action]
+  report (item (get-action-idx action) (get-Q-vector q-values p-state))
+end
+
+to-report get-Q-vector [q-values p-state]
+  let inner-matrix (get-inner-matrix q-values p-state)
+  report (get-matrix inner-matrix (last p-state))
+end
+
+to-report get-inner-matrix [q-values p-state]
+  report (get-matrix q-values (first p-state))
+end
+
+; ====================================================================================
+;                       SETTERS
+; ========================================================================
+
+to-report replace-Q-value [q-values p-state action value]
+  let new-vector (replace-item (get-action-idx action) (get-Q-vector q-values p-state) value)
+  report (replace-Q-vector q-values p-state new-vector)
+end
+
+to-report replace-Q-vector [q-values p-state value]
+  let new-inner-matrix (set-matrix (get-inner-matrix q-values p-state) (last p-state) value)
+  report (replace-inner-matrix q-values p-state new-inner-matrix)
+end
+
+to-report replace-inner-matrix [q-values p-state value]
+  let new-q-values (set-matrix q-values (first p-state) value)
+  report new-q-values
+end
+

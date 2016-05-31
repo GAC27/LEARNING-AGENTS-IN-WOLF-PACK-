@@ -1,0 +1,37 @@
+to-report make-matrix [n fill]
+  report n-values n [ n-values n [ fill ] ]
+end
+
+to-report get-matrix [mat lc]
+  let l (first lc)
+  let c (last lc)
+
+  report item c (item l mat)
+end
+
+;;; Returns a new matrix with the corresponding value changed
+to-report set-matrix [mat lc value]
+  let l (first lc)
+  let c (last lc)
+
+  let new-line replace-item c (item l mat) value
+  report replace-item l mat new-line
+end
+
+to-report is-matrix? [mat]
+  report is-list? mat and is-list? (first mat) and (reduce [?1 and (length ?2) = (length mat)] (fput true mat))
+end
+
+to print-matrix [mat]
+  print ""
+  type "["
+  foreach mat [
+    ifelse is-matrix? ? [
+      print-matrix ?
+    ]
+    [
+      print ?
+    ]
+    type " "
+  ]
+end

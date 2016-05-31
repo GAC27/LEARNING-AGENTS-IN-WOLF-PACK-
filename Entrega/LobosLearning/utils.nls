@@ -1,0 +1,34 @@
+to-report toroidal-distance [x1 x2]
+  report min (list (abs (x1 - x2 )) (MAP-SIZE - (abs (x1 - x2 ))))
+end
+
+to-report cors-toroidal-distance [cor1 cor2]
+  report (map toroidal-distance cor1 cor2)
+end
+
+to-report rel-toroidal [x1 x2]
+  let delta 0
+  ifelse (abs (x1 - x2)) <= (MAP-SIZE - (abs (x1 - x2))) [
+    set delta (x2 - x1)
+  ]
+  [
+    set delta (MAP-SIZE - (abs (x1 - x2)))
+    if x1 < x2 [ set delta (- delta) ]
+  ]
+
+  report delta
+end
+
+to-report rel-cors-toroidal [center cor]
+  report (map rel-toroidal center cor)
+end
+
+;;; @scope turtle
+to-report cors
+  report (list xcor ycor)
+end
+
+;;; @scope none
+to-report cors-of [ttle]
+  report [cors] of ttle
+end
